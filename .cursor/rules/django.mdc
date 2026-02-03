@@ -1,0 +1,118 @@
+---
+alwaysApply: true
+---
+### Django Standards
+
+#### Core Principles
+- **Write clear, technical responses** with precise Django examples
+- **Use Django's built-in features and tools** wherever possible instead of own ones
+- **Prioritize readability and maintainability**- follow Django's coding style guide (PEP 8 compliance)
+- **Use descriptive variable and function names**- adhere to naming conventions (lowercase with underscores)
+- **Structure your project in a modular way** using Django apps to promote reusability and separation of concerns
+
+#### Architecture Patterns
+- **Follow python_devops.mdc standards** for environment managemen
+- **Follow the MVT (Model-View-Template) pattern** strictly for clear separation of concerns
+- **Keep business logic in models, forms or services files**- keep views light and focused on request handling
+- **Use Django apps** to organize functionality into logical, reusable modules
+
+
+### Django Views & URL Patterns
+
+#### View Selection Strategy
+- **Use Django's class-based views (CBVs)** for more complex views with multiple HTTP methods
+- **Prefer function-based views (FBVs)** for simpler logic and straightforward request handling
+- **Keep views focused on request handling** - delegate complex business logic to models, forms, or services
+
+#### URL Configuration
+- **Use Django's URL dispatcher (urls.py)** to define clear and RESTful URL patterns
+- **Organize URLs hierarchically** with app-level and project-level URL configurations
+- **Use meaningful URL names** for reverse URL lookups and template references
+
+
+### Models & Database
+
+#### ORM Best Practices
+- **Leverage Django's ORM** for database interactions - avoid raw SQL queries unless necessary for performance
+- **Use proper field types** and constraints to ensure data integrity
+- **Implement model methods** for business logic that belongs to the model
+- **Use Django's built-in validation** in model clean() methods
+
+#### Query Optimization
+- **Optimize query performance** using Django ORM's `select_related` and `prefetch_related` for related object fetching whenever needed
+- **Use database indexing** and query optimization techniques for better performance
+- **Monitor query performance** and use Django Debug Toolbar in development
+
+
+### Forms & Validation
+
+#### Form Handling Standards
+- **Utilize Django's form and model form classes** for form handling and validation
+- **Use Django's validation framework** to validate form and model data
+- **Implement custom validators** when built-in validators are insufficient
+- **Handle form errors gracefully** with appropriate user feedback
+
+#### Form Organization
+- **Create dedicated forms.py files** for each app
+- **Use ModelForms** when working directly with model instances
+- **Implement clean methods** for custom validation logic
+
+
+### Authentication & Security
+
+#### User Management
+- **Use Django's built-in user model and authentication framework** for user management
+- **Implement proper permission and group management** using Django's built-in systems
+
+#### Security Best Practices
+- **Apply Django's security best practices**:
+  - CSRF protection
+  - SQL injection protection (use ORM)
+  - XSS prevention (template auto-escaping)
+  - Secure headers and HTTPS enforcement
+- **Validate and sanitize all user inputs** before processing
+- **Use Django's built-in security middleware** for common protections
+
+
+### Testing & Quality Assurance
+
+#### Testing Framework
+- **Use Django's built-in testing tools** (unittest and pytest-django) to ensure code quality and reliability
+- **Write tests for models, views, forms, and custom utilities**
+- **Use Django's test client** for integration testing of views
+- **Mock external dependencies** to keep tests fast and reliable
+
+#### Test Organization
+- **Organize tests** in logical modules within each app's tests/ directory
+- **Use Django's test fixtures** or factories for test data creation
+- **Test both positive and negative scenarios** for each piece of functionality
+
+
+### API Development (ONLY IF NEEDED)
+
+#### Django REST Framework (DRF)
+- **Use Django REST Framework** for API development
+- **Use DRF serializers** for JSON responses and data validation
+- **Implement proper API versioning** and documentation
+- **Apply appropriate authentication and permission classes**
+
+#### API Best Practices
+- **Follow RESTful conventions** for API endpoint design
+- **Implement proper HTTP status    ** and error responses
+- **Use pagination** for list endpoints to improve performance
+- **Document APIs** using tools like Django REST Swagger or DRF Spectacular
+
+
+### Dependencies & Package Management
+
+#### Essential Django Packages
+- **Django** (core framework)
+- **Django REST Framework** (for API development if needed)
+- **Celery** (for background tasks)
+- **PostgreSQL** (for production, sqlite for development)
+
+#### Development Dependencies
+- **Django Debug Toolbar** (for development debugging)
+- **pytest-django** (for enhanced testing)
+- **django-extensions** (for additional management commands)
+- **Pillow** (for image handling if needed)
