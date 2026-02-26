@@ -8,12 +8,29 @@ for all tests in the project.
 import os
 
 import pytest
+from celery import current_app
 from django.contrib.auth import get_user_model
 
 # Set default Django settings module for tests
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "ssh_monitor.settings.local")
 
 User = get_user_model()
+
+
+@pytest.fixture(autouse=True)
+def eager_celery(settings):
+    """Prevent tests from requiring a live Redis/Celery backend."""
+    settings.CELERY_BROKER_URL = "memory://"
+    settings.CELERY_RESULT_BACKEND = "cache+memory://"
+    settings.CELERY_TASK_ALWAYS_EAGER = True
+    settings.CELERY_TASK_EAGER_PROPAGATES = True
+
+    current_app.conf.update(
+        broker_url="memory://",
+        result_backend="cache+memory://",
+        task_always_eager=True,
+        task_eager_propagates=True,
+    )
 
 
 @pytest.fixture

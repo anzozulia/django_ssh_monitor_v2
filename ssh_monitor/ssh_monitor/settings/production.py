@@ -10,6 +10,20 @@ from .base import *  # noqa: F401, F403
 
 DEBUG = False
 
+ALLOWED_HOSTS = [
+    host.strip() for host in os.environ.get("ALLOWED_HOSTS", "").split(",") if host.strip()
+]
+if not ALLOWED_HOSTS:
+    raise ValueError("ALLOWED_HOSTS environment variable is required in production")
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+if not CSRF_TRUSTED_ORIGINS:
+    raise ValueError("CSRF_TRUSTED_ORIGINS environment variable is required in production")
+
 # Database - PostgreSQL for production
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
@@ -45,6 +59,7 @@ SESSION_COOKIE_SECURE = True
 
 # HTTPS settings (enable when behind SSL-terminating proxy)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 # SECURE_SSL_REDIRECT = True  # Enable if not behind a proxy that handles redirects
 
 # HSTS settings (enable after confirming HTTPS works)

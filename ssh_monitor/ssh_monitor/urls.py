@@ -9,6 +9,8 @@ from django.contrib import admin
 from django.shortcuts import redirect
 from django.urls import include, path
 
+from apps.core.views import healthz
+
 
 def redirect_to_dashboard(request):
     """Redirect root URL to dashboard or login."""
@@ -20,6 +22,7 @@ def redirect_to_dashboard(request):
 urlpatterns = [
     # Root redirect
     path("", redirect_to_dashboard, name="root"),
+    path("healthz", healthz, name="healthz"),
     # Django admin
     path("admin/", admin.site.urls),
     # App URLs

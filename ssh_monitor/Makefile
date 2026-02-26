@@ -11,6 +11,7 @@ APP := app
 .PHONY: test test-cov lint format check
 .PHONY: tailwind-install tailwind-build tailwind-watch
 .PHONY: prod-up prod-down prod-build prod-logs
+.PHONY: deploy rollback healthz
 .PHONY: bootstrap clean reset
 
 help:
@@ -49,6 +50,9 @@ help:
 	@echo "  make prod-up        Start production stack"
 	@echo "  make prod-down      Stop production stack"
 	@echo "  make prod-logs      Follow production logs"
+	@echo "  make deploy REF=<git-ref> Deploy checked-out ref on server"
+	@echo "  make rollback REF=<git-ref> Roll back to ref on server"
+	@echo "  make healthz        Probe local health endpoint"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  make bootstrap      One-shot local setup (up, migrate, admin, styles)"
@@ -67,6 +71,9 @@ down:
 restart:
 	$(COMPOSE_LOCAL) down
 	$(COMPOSE_LOCAL) up -d --build
+
+recreate:
+	$(COMPOSE_LOCAL) up --build -d --force-recreate
 
 ps:
 	$(COMPOSE_LOCAL) ps
@@ -129,6 +136,17 @@ prod-down:
 
 prod-logs:
 	$(COMPOSE_PROD) logs -f
+
+deploy:
+	@test -n "$(REF)" || (echo "Usage: make deploy REF=<git-ref>" && exit 1)
+	DEPLOY_REF=$(REF) ./scripts/deploy.sh
+
+rollback:
+	@test -n "$(REF)" || (echo "Usage: make rollback REF=<git-ref>" && exit 1)
+	./scripts/rollback.sh $(REF)
+
+healthz:
+	curl -fsS $${HEALTHZ_URL:-http://127.0.0.1:8001/healthz} | python3 -m json.tool
 
 clean:
 	docker system prune -f
