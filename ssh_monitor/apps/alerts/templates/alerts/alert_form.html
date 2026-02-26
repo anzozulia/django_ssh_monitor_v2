@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if is_default_template %}
+    {% if mode == "edit" %}Edit Default Alert Template{% else %}Add Default Alert Template{% endif %} - SSH Monitor
+{% else %}
+    {% if mode == "edit" %}Edit Alert{% else %}Add Alert{% endif %} - {{ server.name }}
+{% endif %}
+{% endblock %}
+{% block page_title %}
+{% if is_default_template %}
+    {% if mode == "edit" %}Edit Default Alert Template{% else %}Add Default Alert Template{% endif %}
+{% else %}
+    {% if mode == "edit" %}Edit Alert{% else %}Add Alert{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-screen-2xl space-y-6">
+    <div>
+        <nav class="mb-2 flex items-center gap-2 text-theme-sm text-gray-500">
+            <a href="{% url 'servers:dashboard' %}" class="hover:text-brand-500">Dashboard</a>
+            <span>/</span>
+            {% if is_default_template %}
+            <a href="{% url 'alerts:defaults' %}" class="hover:text-brand-500">Default Alerts</a>
+            {% else %}
+            <a href="{% url 'servers:detail' server.id %}" class="hover:text-brand-500">{{ server.name }}</a>
+            {% endif %}
+            <span>/</span>
+            {% if is_default_template %}
+            <a href="{% url 'alerts:defaults' %}" class="hover:text-brand-500">Templates</a>
+            {% else %}
+            <a href="{% url 'servers:detail' server.id %}" class="hover:text-brand-500">Alerts</a>
+            {% endif %}
+            <span>/</span>
+            <span class="text-gray-700">{% if mode == "edit" %}Edit{% else %}Add{% endif %}</span>
+        </nav>
+        <h2 class="text-2xl font-bold text-gray-900 sm:text-title-sm">
+            {% if is_default_template %}
+                {% if mode == "edit" %}Edit Default Alert Template{% else %}Add Default Alert Template{% endif %}
+            {% else %}
+                {% if mode == "edit" %}Edit Alert Rule{% else %}Add Alert Rule{% endif %}
+            {% endif %}
+        </h2>
+        <p class="mt-1 text-theme-sm text-gray-500">
+            {% if is_default_template %}
+                Configure default trigger conditions and notification behavior applied to new servers.
+            {% else %}
+                Configure trigger conditions and notification behavior for {{ server.name }}.
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="rounded-2xl border border-gray-200 bg-white shadow-theme-xs">
+        <div class="border-b border-gray-200 px-5 py-4 sm:px-6">
+            <h3 class="text-lg font-semibold text-gray-900">Rule Configuration</h3>
+        </div>
+        <div class="p-5 sm:p-6">
+            <form
+                method="post"
+                class="space-y-6"
+                x-data="{
+                    condition: '{{ form.condition.value|default:'gt' }}',
+                    metric: '{{ form.metric_type.value|default:'' }}',
+                    thresholdUnit: '{{ form.threshold_unit.value|default:'GB' }}',
+                    useDismissalThreshold: {% if form.use_dismissal_threshold.value %}true{% else %}false{% endif %},
+                    byteMetrics: ['ram_used','ram_free','ram_available','ram_cached','swap_used','swap_free','disk_used','disk_free'],
+                    uptimeMetrics: ['uptime'],
+                    isRange() { return this.condition === 'in_range' || this.condition === 'out_of_range'; },
+                    isByteMetric() { return this.byteMetrics.includes(this.metric); },
+                    isUptimeMetric() { return this.uptimeMetrics.includes(this.metric); },
+                    isUnitMetric() { return this.isByteMetric() || this.isUptimeMetric(); },
+                    unitSuffix() { return this.isUnitMetric() ? this.thresholdUnit : ''; },
+                    thresholdLabel() {
+                        if (this.isRange()) { return this.unitSuffix() ? `From (${this.unitSuffix()})` : 'From'; }
+                        return this.unitSuffix() ? `Threshold (${this.unitSuffix()})` : 'Threshold';
+                    },
+                    toLabel() { return this.unitSuffix() ? `To (${this.unitSuffix()})` : 'To'; },
+                    dismissalLabel() {
+                        if (this.condition === 'in_range') return this.unitSuffix() ? `Dismiss Below (${this.unitSuffix()})` : 'Dismiss Below';
+                        if (this.condition === 'out_of_range') return this.unitSuffix() ? `Dismiss From (${this.unitSuffix()})` : 'Dismiss From';
+                        if (this.condition === 'eq') return this.unitSuffix() ? `Dismiss Tolerance (± ${this.unitSuffix()})` : 'Dismiss Tolerance (±)';
+                        return this.unitSuffix() ? `Dismiss At (${this.unitSuffix()})` : 'Dismiss At';
+                    },
+                    dismissalToLabel() {
+                        return this.unitSuffix() ? `Dismiss To (${this.unitSuffix()})` : 'Dismiss To';
+                    },
+                    dismissalHint() {
+                        if (this.condition === 'gt') return 'Triggers when value is above Threshold. Dismisses when value falls to Dismiss At or below.';
+                        if (this.condition === 'gte') return 'Triggers when value is at/above Threshold. Dismisses when value falls below Dismiss At.';
+                        if (this.condition === 'lt') return 'Triggers when value is below Threshold. Dismisses when value rises to Dismiss At or above.';
+                        if (this.condition === 'lte') return 'Triggers when value is at/below Threshold. Dismisses when value rises above Dismiss At.';
+                        if (this.condition === 'eq') return 'Triggers when value equals Threshold. Dismisses when value moves outside ± Dismiss Tolerance.';
+                        if (this.condition === 'in_range') return 'Triggers inside [From..To]. Dismisses only after value exits further to [<= Dismiss Below] or [>= Dismiss To].';
+                        if (this.condition === 'out_of_range') return 'Triggers outside [From..To]. Dismisses only after value returns to [Dismiss From..Dismiss To].';
+                        return '';
+                    },
+                    showDismissalSecond() {
+                        return this.useDismissalThreshold && (this.condition === 'in_range' || this.condition === 'out_of_range');
+                    },
+                    thresholdColumns() {
+                        if (this.isRange() && this.isUnitMetric()) return 'lg:[grid-template-columns:repeat(4,minmax(0,1fr))]';
+                        if (this.isRange()) return 'lg:[grid-template-columns:repeat(3,minmax(0,1fr))]';
+                        if (this.isUnitMetric()) return 'lg:[grid-template-columns:repeat(3,minmax(0,1fr))]';
+                        return 'lg:[grid-template-columns:repeat(2,minmax(0,1fr))]';
+                    }
+                }"
+                x-effect="
+                    if (isByteMetric() && !['B','KB','MB','GB','TB'].includes(thresholdUnit)) thresholdUnit = 'GB';
+                    if (isUptimeMetric() && !['h','d','w','mo'].includes(thresholdUnit)) thresholdUnit = 'd';
+                "
+            >
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                <div class="rounded-xl border border-error-200 bg-error-50 px-4 py-3">
+                    {% for error in form.non_field_errors %}
+                    <p class="text-theme-sm text-error-700">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="space-y-6">
+                    <div class="rounded-xl border border-gray-200 p-4 sm:p-5">
+                        <h4 class="mb-4 text-theme-sm font-semibold uppercase tracking-wider text-gray-500">Rule</h4>
+                        <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                            <div>
+                                <label for="{{ form.name.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">Rule Name <span class="text-error-500">*</span></label>
+                                <input type="text" name="{{ form.name.html_name }}" id="{{ form.name.id_for_label }}" value="{{ form.name.value|default:'' }}" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.name.errors %}border-error-500{% endif %}">
+                                {% for error in form.name.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                            </div>
+                            <div>
+                                <label for="{{ form.severity.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">Severity <span class="text-error-500">*</span></label>
+                                {{ form.severity }}
+                                {% for error in form.severity.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border border-gray-200 p-4 sm:p-5">
+                        <h4 class="mb-4 text-theme-sm font-semibold uppercase tracking-wider text-gray-500">Trigger Definition</h4>
+                        <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                            <div>
+                                <label for="{{ form.metric_type.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">Metric <span class="text-error-500">*</span></label>
+                                <select
+                                    name="{{ form.metric_type.html_name }}"
+                                    id="{{ form.metric_type.id_for_label }}"
+                                    x-model="metric"
+                                    class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.metric_type.errors %}border-error-500{% endif %}"
+                                >
+                                    {% for group_label, group_options in form.metric_type.field.choices %}
+                                        <optgroup label="{{ group_label }}">
+                                            {% for value, label in group_options %}
+                                            <option value="{{ value }}" {% if form.metric_type.value == value %}selected{% endif %}>{{ label }}</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endfor %}
+                                </select>
+                                {% for error in form.metric_type.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                            </div>
+                            <div>
+                                <label for="{{ form.metric_param.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">Metric Parameter</label>
+                                <input type="text" name="{{ form.metric_param.html_name }}" id="{{ form.metric_param.id_for_label }}" value="{{ form.metric_param.value|default:'' }}" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.metric_param.errors %}border-error-500{% endif %}" placeholder="Optional (e.g. /var for disk)">
+                                {% for error in form.metric_param.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                            </div>
+                        </div>
+                        <div class="mt-5 grid grid-cols-1 gap-5" x-bind:class="thresholdColumns()">
+                            <div>
+                                <label for="{{ form.condition.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">Condition <span class="text-error-500">*</span></label>
+                                <select
+                                    name="{{ form.condition.html_name }}"
+                                    id="{{ form.condition.id_for_label }}"
+                                    x-model="condition"
+                                    class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.condition.errors %}border-error-500{% endif %}"
+                                >
+                                    {% for value, label in form.condition.field.choices %}
+                                    <option value="{{ value }}" {% if form.condition.value == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% for error in form.condition.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                            </div>
+                            <div>
+                                <label for="{{ form.threshold_value.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">
+                                    <span x-text="thresholdLabel()"></span>
+                                    <span class="text-error-500">*</span>
+                                </label>
+                                <input type="number" step="any" name="{{ form.threshold_value.html_name }}" id="{{ form.threshold_value.id_for_label }}" value="{{ form.threshold_value.value|default:'' }}" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.threshold_value.errors %}border-error-500{% endif %}">
+                                {% for error in form.threshold_value.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                            </div>
+                            <div x-show="isRange()">
+                                <label for="{{ form.threshold_value_2.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700" x-text="toLabel()"></label>
+                                <input type="number" step="any" name="{{ form.threshold_value_2.html_name }}" id="{{ form.threshold_value_2.id_for_label }}" value="{{ form.threshold_value_2.value|default:'' }}" x-bind:disabled="!isRange()" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.threshold_value_2.errors %}border-error-500{% endif %}">
+                                {% for error in form.threshold_value_2.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                            </div>
+                            <div x-show="isUnitMetric()">
+                                <label for="{{ form.threshold_unit.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">Unit</label>
+                                <select
+                                    name="{{ form.threshold_unit.html_name }}"
+                                    id="{{ form.threshold_unit.id_for_label }}"
+                                    x-model="thresholdUnit"
+                                    x-bind:disabled="!isUnitMetric()"
+                                    class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.threshold_unit.errors %}border-error-500{% endif %}"
+                                >
+                                    <option value="B" x-show="isByteMetric()" {% if form.threshold_unit.value == 'B' %}selected{% endif %}>Bytes</option>
+                                    <option value="KB" x-show="isByteMetric()" {% if form.threshold_unit.value == 'KB' %}selected{% endif %}>KB</option>
+                                    <option value="MB" x-show="isByteMetric()" {% if form.threshold_unit.value == 'MB' %}selected{% endif %}>MB</option>
+                                    <option value="GB" x-show="isByteMetric()" {% if form.threshold_unit.value == 'GB' %}selected{% endif %}>GB</option>
+                                    <option value="TB" x-show="isByteMetric()" {% if form.threshold_unit.value == 'TB' %}selected{% endif %}>TB</option>
+                                    <option value="h" x-show="isUptimeMetric()" {% if form.threshold_unit.value == 'h' %}selected{% endif %}>Hours</option>
+                                    <option value="d" x-show="isUptimeMetric()" {% if form.threshold_unit.value == 'd' %}selected{% endif %}>Days</option>
+                                    <option value="w" x-show="isUptimeMetric()" {% if form.threshold_unit.value == 'w' %}selected{% endif %}>Weeks</option>
+                                    <option value="mo" x-show="isUptimeMetric()" {% if form.threshold_unit.value == 'mo' %}selected{% endif %}>Months</option>
+                                </select>
+                                {% for error in form.threshold_unit.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border border-gray-200 p-4 sm:p-5">
+                        <h4 class="mb-4 text-theme-sm font-semibold uppercase tracking-wider text-gray-500">Recovery And Notifications</h4>
+                        <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                            <div>
+                                <label for="{{ form.reminder_interval_minutes.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">Reminder Interval (minutes)</label>
+                                <input type="number" name="{{ form.reminder_interval_minutes.html_name }}" id="{{ form.reminder_interval_minutes.id_for_label }}" value="{{ form.reminder_interval_minutes.value|default:'' }}" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.reminder_interval_minutes.errors %}border-error-500{% endif %}">
+                                {% for error in form.reminder_interval_minutes.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+                            <div>
+                                <label class="mb-1.5 block text-theme-sm font-medium text-gray-700">Use Dismissal Threshold/Tolerance</label>
+                                <label class="inline-flex cursor-pointer items-center gap-3">
+                                    {{ form.use_dismissal_threshold }}
+                                    <span class="relative h-6 w-11 rounded-full bg-gray-200 transition-colors peer-checked:bg-brand-500 before:absolute before:left-0.5 before:top-0.5 before:h-5 before:w-5 before:rounded-full before:bg-white before:transition-transform peer-checked:before:translate-x-5"></span>
+                                    <span class="text-theme-sm text-gray-600" x-text="useDismissalThreshold ? 'On' : 'Off'"></span>
+                                </label>
+                                {% for error in form.use_dismissal_threshold.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                            </div>
+                            <div>
+                                <label class="mb-1.5 block text-theme-sm font-medium text-gray-700">Notify On Dismissal</label>
+                                <label class="inline-flex cursor-pointer items-center gap-3">
+                                    {{ form.notify_on_dismissal }}
+                                    <span class="relative h-6 w-11 rounded-full bg-gray-200 transition-colors peer-checked:bg-brand-500 before:absolute before:left-0.5 before:top-0.5 before:h-5 before:w-5 before:rounded-full before:bg-white before:transition-transform peer-checked:before:translate-x-5"></span>
+                                    <span class="text-theme-sm text-gray-600">On</span>
+                                </label>
+                                {% for error in form.notify_on_dismissal.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:p-5" x-show="useDismissalThreshold">
+                            <div class="mb-3">
+                                <h5 class="text-theme-sm font-semibold text-gray-800">Dismissal Rules</h5>
+                                <p class="mt-1 text-theme-xs text-gray-600" x-text="dismissalHint()"></p>
+                            </div>
+                            <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                                <div>
+                                    <label for="{{ form.dismissal_threshold_value.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700" x-text="dismissalLabel()"></label>
+                                    <input type="number" step="any" name="{{ form.dismissal_threshold_value.html_name }}" id="{{ form.dismissal_threshold_value.id_for_label }}" value="{{ form.dismissal_threshold_value.value|default:'' }}" x-bind:disabled="!useDismissalThreshold" class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.dismissal_threshold_value.errors %}border-error-500{% endif %}">
+                                    {% for error in form.dismissal_threshold_value.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                                </div>
+                                <div x-show="showDismissalSecond()">
+                                    <label for="{{ form.dismissal_threshold_value_2.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700" x-text="dismissalToLabel()"></label>
+                                    <input type="number" step="any" name="{{ form.dismissal_threshold_value_2.html_name }}" id="{{ form.dismissal_threshold_value_2.id_for_label }}" value="{{ form.dismissal_threshold_value_2.value|default:'' }}" x-bind:disabled="!showDismissalSecond()" class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.dismissal_threshold_value_2.errors %}border-error-500{% endif %}">
+                                    {% for error in form.dismissal_threshold_value_2.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 pt-2">
+                    <button type="submit" class="rounded-lg bg-brand-500 px-5 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs hover:bg-brand-600">
+                        {% if mode == "edit" %}Update{% else %}Create{% endif %}
+                    </button>
+                    <a href="{% if is_default_template %}{% url 'alerts:defaults' %}{% else %}{% url 'servers:detail' server.id %}{% endif %}" class="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50">
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Default Alerts - SSH Monitor{% endblock %}
+{% block page_title %}Default Alert Templates{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-screen-2xl">
+    <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-xs">
+        <div class="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
+            <div>
+            <h3 class="text-lg font-semibold text-gray-900">Default Alert Templates</h3>
+            <p class="mt-1 text-theme-sm text-gray-500">These alerts are automatically applied to new servers.</p>
+            </div>
+            <a href="{% url 'alerts:defaults-create' %}" class="rounded-lg bg-brand-500 px-4 py-2.5 text-theme-sm font-medium text-white hover:bg-brand-600">Add Template</a>
+        </div>
+        {% if templates %}
+        <div class="overflow-x-auto border-t border-gray-200">
+            <table class="w-full">
+                <thead>
+                    <tr>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Name</th>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Severity</th>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Metric</th>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Condition</th>
+                        <th class="px-5 py-3 text-right text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for template in templates %}
+                    <tr>
+                        <td class="px-5 py-4 text-theme-sm font-medium text-gray-900 sm:px-6">{{ template.name }}</td>
+                        <td class="px-5 py-4 text-theme-sm text-gray-700 sm:px-6">{{ template.get_severity_display }}</td>
+                        <td class="px-5 py-4 text-theme-sm text-gray-700 sm:px-6">{{ template.get_metric_type_display }}</td>
+                        <td class="px-5 py-4 text-theme-sm text-gray-700 sm:px-6">{{ template.get_condition_display }}</td>
+                        <td class="px-5 py-4 text-right sm:px-6">
+                            <div class="inline-flex items-center gap-2">
+                                <a href="{% url 'alerts:defaults-update' template.id %}" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-50">Edit</a>
+                                <form method="post" action="{% url 'alerts:defaults-delete' template.id %}" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="rounded-lg border border-error-300 bg-error-50 px-3 py-2 text-theme-sm font-medium text-error-700 hover:bg-error-100">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="border-t border-gray-200 px-5 py-16 text-center sm:px-6">
+            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            <h3 class="mt-3 text-theme-sm font-medium text-gray-900">No default templates</h3>
+            <p class="mt-1 text-theme-sm text-gray-500">Create templates to auto-apply alerts to new servers.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

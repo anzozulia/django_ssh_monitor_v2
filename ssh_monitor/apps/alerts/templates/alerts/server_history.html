@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}{{ server.name }} Alert History - SSH Monitor{% endblock %}
+{% block page_title %}{{ server.name }} Alert History{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-screen-2xl">
+    <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-xs space-y-4">
+        <div class="px-5 py-4 sm:px-6 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">Alert Events for {{ server.name }}</h3>
+        </div>
+        <div class="px-5 sm:px-6">
+            {% url 'alerts:server-history' server_pk=server.id as server_history_url %}
+            {% include "alerts/_history_filters.html" with action_url=server_history_url show_server_filter=False %}
+        </div>
+        {% if events %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-y border-gray-200">
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Alert</th>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Metric</th>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Event</th>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Value</th>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Threshold</th>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Time</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for event in events %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-5 py-4 text-theme-sm font-medium text-gray-900 sm:px-6">{{ event.alert_rule.name }}</td>
+                        <td class="px-5 py-4 text-theme-sm text-gray-700 sm:px-6">{{ event.alert_rule.get_metric_type_display }}</td>
+                        <td class="px-5 py-4 sm:px-6">
+                            <span class="inline-flex rounded-full px-2.5 py-0.5 text-theme-xs font-medium {% if event.event_type == 'triggered' %}bg-error-50 text-error-700{% elif event.event_type == 'reminded' %}bg-warning-50 text-warning-700{% else %}bg-success-50 text-success-700{% endif %}">
+                                {{ event.get_event_type_display }}
+                            </span>
+                        </td>
+                        <td class="px-5 py-4 text-theme-sm text-gray-700 sm:px-6">{{ event.metric_value|floatformat:2 }}</td>
+                        <td class="px-5 py-4 text-theme-sm text-gray-500 sm:px-6">{{ event.threshold_value|floatformat:2 }}</td>
+                        <td class="px-5 py-4 text-theme-sm text-gray-500 sm:px-6">{{ event.created_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if page_obj.has_other_pages %}
+        <div class="flex items-center justify-between border-t border-gray-200 px-5 py-3 text-theme-sm text-gray-600 sm:px-6">
+            <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            <div class="flex items-center gap-2">
+                {% if page_obj.has_previous %}
+                <a href="?event_type={{ filters.event_type }}&metric_type={{ filters.metric_type }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&page={{ page_obj.previous_page_number }}" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 hover:bg-gray-50">Prev</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?event_type={{ filters.event_type }}&metric_type={{ filters.metric_type }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&page={{ page_obj.next_page_number }}" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 hover:bg-gray-50">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="px-5 py-16 text-center sm:px-6">
+            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            <h3 class="mt-3 text-theme-sm font-medium text-gray-900">No alert events for this server</h3>
+            <p class="mt-1 text-theme-sm text-gray-500">Events will appear here when alerts are triggered.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

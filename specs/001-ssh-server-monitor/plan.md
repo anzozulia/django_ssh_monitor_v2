@@ -11,7 +11,7 @@ Build a centralized SSH-based server monitoring platform using Django with serve
 
 **Language/Version**: Python 3.12  
 **Primary Framework**: Django 5.x (SSR monolith)  
-**Frontend**: Tailwind CSS 3.x (via django-tailwind), Chart.js for graphs, vanilla JS for polling  
+**Frontend**: Tailwind CSS v4 (via @tailwindcss/cli), TailAdmin design system (light theme), Alpine.js for UI interactivity, ApexCharts for graphs, vanilla JS for polling  
 **SSH Library**: Paramiko (synchronous, simpler for Django's sync views; adequate for 50 servers)  
 **Background Tasks**: Celery 5.x + Redis (broker), django-celery-beat (dynamic scheduling)  
 **Storage**: PostgreSQL 16 (production), SQLite (development)  
@@ -105,7 +105,7 @@ ssh_monitor/                    # Django project root
 │   │
 │   ├── alerts/                 # Alerting system
 │   │   ├── __init__.py
-│   │   ├── models.py          # AlertRule, AlertEvent, DefaultAlertTemplate
+│   │   ├── models.py          # AlertRule (incl. default template flag), AlertEvent
 │   │   ├── services/
 │   │   │   ├── __init__.py
 │   │   │   ├── evaluation_service.py   # Alert condition checking
@@ -134,8 +134,8 @@ ssh_monitor/                    # Django project root
 │   │   └── metrics-polling.js # Unified rendering + polling logic
 │   └── images/
 │
-├── theme/                      # django-tailwind theme app
-│   └── ...
+├── theme/                      # Tailwind CSS build (via @tailwindcss/cli)
+│   └── static_src/             # package.json, input.css
 │
 ├── templates/                  # Project-level template overrides
 │
@@ -204,19 +204,23 @@ No constitution violations requiring justification.
 - Redis is lightweight and already needed for Celery broker
 - Single celery-beat process ensures no duplicate task execution
 
-### Frontend: Tailwind CSS + Chart.js
+### Frontend: Tailwind CSS v4 + TailAdmin + Alpine.js + ApexCharts
 
-**Decision**: django-tailwind (npm-based) + Chart.js for graphs
+**Decision**: Tailwind CSS v4 via `@tailwindcss/cli`, TailAdmin design system (light theme only), Alpine.js for dynamic UI, ApexCharts for graphs
 
 **Rationale**:
-- Tailwind provides admin-panel styling without custom CSS
-- Chart.js is lightweight, well-documented, and handles time-series well
+- Tailwind v4 provides modern CSS-first configuration without `tailwind.config.js`
+- TailAdmin (demo.tailadmin.com) provides a polished admin-panel design language out of the box
+- Alpine.js handles dynamic form interactions (conditional fields, toggles, dynamic labels) without framework overhead
+- ApexCharts provides the desired TailAdmin-style visual quality for time-series charts
 - Vanilla JS for polling keeps frontend simple (no React/Vue complexity)
 - SSR with progressive enhancement matches Constitution Principle II
 
+**Note**: Originally planned with django-tailwind + Tailwind v3, but migrated to `@tailwindcss/cli` v4 and TailAdmin during Phase 3 UI implementation for significantly improved visual quality.
+
 ### Charting Approach
 
-**Decision**: Chart.js with JSON data passed from Django views
+**Decision**: ApexCharts with JSON data passed from Django views
 
 **Implementation**:
 - Server detail page includes initial metrics data as JSON in template

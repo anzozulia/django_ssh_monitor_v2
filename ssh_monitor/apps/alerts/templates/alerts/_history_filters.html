@@ -1,0 +1,43 @@
+<form method="get" action="{{ action_url }}" class="grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 md:grid-cols-2 lg:grid-cols-5">
+    {% if show_server_filter %}
+    <div>
+        <label for="filter-server" class="mb-1.5 block text-theme-xs font-medium uppercase tracking-wider text-gray-500">Server</label>
+        <select id="filter-server" name="server" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-theme-sm text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            <option value="">All servers</option>
+            {% for item in servers %}
+            <option value="{{ item.id }}" {% if filters.server == item.id|stringformat:"s" %}selected{% endif %}>{{ item.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+    <div>
+        <label for="filter-event" class="mb-1.5 block text-theme-xs font-medium uppercase tracking-wider text-gray-500">Event Type</label>
+        <select id="filter-event" name="event_type" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-theme-sm text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            <option value="">All events</option>
+            {% for value, label in event_type_choices %}
+            <option value="{{ value }}" {% if filters.event_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div>
+        <label for="filter-metric" class="mb-1.5 block text-theme-xs font-medium uppercase tracking-wider text-gray-500">Metric Type</label>
+        <select id="filter-metric" name="metric_type" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-theme-sm text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            <option value="">All metrics</option>
+            {% for value, label in metric_type_choices %}
+            <option value="{{ value }}" {% if filters.metric_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div>
+        <label for="filter-date-from" class="mb-1.5 block text-theme-xs font-medium uppercase tracking-wider text-gray-500">Date From</label>
+        <input id="filter-date-from" type="date" name="date_from" value="{{ filters.date_from }}" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-theme-sm text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+    </div>
+    <div>
+        <label for="filter-date-to" class="mb-1.5 block text-theme-xs font-medium uppercase tracking-wider text-gray-500">Date To</label>
+        <input id="filter-date-to" type="date" name="date_to" value="{{ filters.date_to }}" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-theme-sm text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+    </div>
+    <div class="md:col-span-2 lg:col-span-5 flex flex-wrap items-center gap-2">
+        <button type="submit" class="rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white hover:bg-brand-600">Apply Filters</button>
+        <a href="{{ action_url }}" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-50">Reset</a>
+    </div>
+</form>

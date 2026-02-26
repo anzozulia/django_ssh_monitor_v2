@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications - SSH Monitor{% endblock %}
+{% block page_title %}Notification Channels{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-screen-2xl">
+    <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-xs">
+        <div class="px-5 py-4 sm:px-6">
+            <h3 class="text-lg font-semibold text-gray-900">Notification Channels</h3>
+            <p class="mt-1 text-theme-sm text-gray-500">Configure how you receive alerts.</p>
+        </div>
+        <div class="border-t border-gray-200 p-5 sm:p-6">
+            {% for channel in channels %}
+            <div
+                class="mb-4 cursor-pointer rounded-xl border border-gray-200 p-4 transition-colors hover:bg-gray-50 last:mb-0"
+                {% if channel.channel_type == "telegram" %}onclick="if (!event.target.closest('[data-stop-row-nav]')) window.location='{% url 'notifications:telegram-config' %}'"{% endif %}
+            >
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h4 class="font-medium text-gray-900">{{ channel.get_channel_type_display }}</h4>
+                        <p class="text-theme-sm text-gray-500">Validation: {{ channel.get_validation_status_display }}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="inline-flex cursor-pointer items-center gap-2" data-stop-row-nav="true">
+                            <input
+                                type="checkbox"
+                                class="peer sr-only"
+                                data-async-toggle="true"
+                                data-toggle-url="{% url 'notifications:toggle' channel.id %}"
+                                {% if channel.enabled %}checked{% endif %}
+                                data-stop-row-nav="true"
+                            >
+                            <span class="relative h-6 w-11 rounded-full bg-gray-200 transition-colors peer-checked:bg-brand-500 before:absolute before:left-0.5 before:top-0.5 before:h-5 before:w-5 before:rounded-full before:bg-white before:transition-transform peer-checked:before:translate-x-5" data-stop-row-nav="true"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="rounded-xl border border-gray-200 p-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h4 class="font-medium text-gray-900">Telegram</h4>
+                        <p class="text-theme-sm text-gray-500">Not configured</p>
+                    </div>
+                    <a href="{% url 'notifications:telegram-config' %}" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-50">Configure</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

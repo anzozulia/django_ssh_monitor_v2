@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-ssh-server-monitor`  
 **Created**: 2026-02-03  
-**Status**: Draft  
+**Status**: Final  
 **Input**: User description: "All-in-one SSH-based server resources monitoring platform with centralized web interface and configurable alerting"
 
 ## User Scenarios & Testing *(mandatory)*
@@ -45,7 +45,7 @@ As a user, I want to set up alert rules for my server so that I get notified whe
 
 3. **Given** an alert is configured with "notify on dismissal" enabled, **When** the alert condition that was previously triggered becomes false, **Then** I receive a dismissal notification.
 
-4. **Given** an alert with a dismissal threshold of "5 minutes" is triggered, **When** the condition briefly clears for 2 minutes and then triggers again, **Then** no dismissal notification is sent (threshold not met).
+4. **Given** an alert "RAM > 80%" with a dismissal threshold of 75% is triggered, **When** RAM drops to 79% (below trigger but above dismissal threshold) and then rises again, **Then** no dismissal notification is sent because the metric has not recovered past the dismissal threshold. **When** RAM drops to 70% (below dismissal threshold), **Then** the alert is dismissed.
 
 5. **Given** I have created multiple alerts for a server, **When** I view the server's alert configuration, **Then** I see all alerts listed with their type (warning/critical), parameter, condition, value, and current status (active/triggered/dismissed).
 
@@ -119,7 +119,7 @@ As a user, I want a dashboard overview of all servers and quick navigation to an
 
 **Acceptance Scenarios**:
 
-1. **Given** I have multiple servers added, **When** I view the dashboard, **Then** I see all servers listed with their current status (online/offline), key metrics summary (CPU, RAM, disk), and alert status (normal/warning/critical).
+1. **Given** I have multiple servers added, **When** I view the dashboard, **Then** I see all servers listed with their current status (online/offline) as badge-style indicators, key metrics summary (CPU, RAM, disk), and a fleet health overview panel showing counts and percentage distribution of healthy/warning/critical servers.
 
 2. **Given** I am on any page in the application, **When** I click the server dropdown in the sidebar, **Then** I see a list of all servers and can click any to go directly to its detail page.
 
@@ -176,7 +176,7 @@ As a user, I want to edit server configurations, temporarily disable monitoring,
 **Metrics Collection**
 
 - **FR-008**: System MUST collect metrics via SSH commands without requiring agent installation on monitored servers.
-- **FR-009**: System MUST collect at minimum: CPU load (1/5/15 min averages), RAM usage (used/total/percentage), disk usage per mount point (used/total/percentage), swap usage, and system uptime.
+- **FR-009**: System MUST collect at minimum: CPU load (1/5/15 min averages), CPU core count, RAM metrics (total, used, free, available, cached, buffers, shared — both absolute bytes and percentages), disk usage per mount point (filesystem type, used/available/total bytes, percentage), swap metrics (total, used, free, cached — bytes and percentages), and system uptime.
 - **FR-010**: System MUST store historical metrics data at full resolution (no downsampling) for trend analysis and graphing.
 - **FR-011**: System MUST handle metric collection failures gracefully, logging errors without crashing the monitoring cycle.
 - **FR-011a**: On SSH connection failure, system MUST immediately retry 3 consecutive times before marking server as unreachable.
@@ -188,11 +188,13 @@ As a user, I want to edit server configurations, temporarily disable monitoring,
 **Alerting**
 
 - **FR-013**: System MUST support two alert severity levels: warning and critical.
-- **FR-014**: System MUST support alerts on all collected metrics (CPU, RAM, disk, swap, load average, etc.).
+- **FR-014**: System MUST support alerts on all collected metrics including: CPU load (1/5/15 min), RAM usage % / free % / available %, RAM used/free/available/cached (bytes), swap usage % / free %, swap used/free (bytes), disk usage % / free %, disk used/free (bytes), and uptime.
 - **FR-015**: System MUST support alert conditions: greater than, less than, equals, greater than or equals, less than or equals, and within/outside range.
 - **FR-016**: System MUST support configurable reminder intervals for ongoing alert conditions (off, or 15 minutes to 24 hours).
 - **FR-017**: System MUST support optional dismissal notifications when alert conditions clear.
-- **FR-018**: System MUST support dismissal thresholds to prevent notification spam from flapping conditions.
+- **FR-018**: System MUST support optional value-based dismissal thresholds (hysteresis) to prevent notification spam from flapping conditions. Dismissal threshold defines the metric value at which an alert is considered recovered — not the same as the trigger threshold. For example, "RAM > 80%" triggers alert but only dismisses when RAM drops below 75%. For range conditions (in_range/out_of_range), two dismissal values define the recovery band. Dismissal thresholds are optional; when not configured, the alert dismisses as soon as the trigger condition is no longer met.
+- **FR-018a**: For byte-based metrics (RAM/swap/disk in bytes), dismissal thresholds MUST respect the same unit selection as trigger thresholds (B/KB/MB/GB/TB).
+- **FR-018b**: For uptime metrics, dismissal thresholds MUST respect the same unit selection as trigger thresholds (hours/days/weeks/months).
 - **FR-019**: System MUST support default alert templates that automatically apply to newly added servers.
 - **FR-020**: Default alerts MUST be cloned (not linked) to new servers, allowing independent modification per server.
 
@@ -206,7 +208,7 @@ As a user, I want to edit server configurations, temporarily disable monitoring,
 
 **User Interface**
 
-- **FR-026**: System MUST provide a dashboard showing all servers with status summaries.
+- **FR-026**: System MUST provide a dashboard showing all servers with status summaries, including a fleet health overview panel that classifies each server as healthy, warning, or critical based on active alert states, with a visual segmented bar showing distribution.
 - **FR-027**: System MUST provide a sidebar with dropdown for quick access to any server's detail page.
 - **FR-028**: System MUST visually distinguish servers with active alerts (warning vs critical vs normal).
 - **FR-029**: System MUST provide historical metric graphs with selectable time ranges.
@@ -227,9 +229,9 @@ As a user, I want to edit server configurations, temporarily disable monitoring,
 
 - **Server**: Represents a monitored VPS. Attributes: name, ssh_username, host, port, auth type, credentials (encrypted), check interval, monitoring enabled flag, created date, last check timestamp, connection status. **Uniqueness**: host+port combination must be unique (no duplicate servers allowed).
 
-- **Metric Snapshot**: A point-in-time collection of metrics for a server. Attributes: server reference, timestamp, CPU loads, RAM values, disk values per mount, swap values, uptime, collection status (success/partial/failed).
+- **Metric Snapshot**: A point-in-time collection of metrics for a server. Attributes: server reference, timestamp, CPU loads, CPU core count, detailed RAM values (total/used/free/available/cached/buffers/shared in bytes, usage/free/available percentages), detailed swap values (total/used/free/cached in bytes, usage/free percentages), disk values per mount (filesystem type, total/used/available bytes, percentage), uptime, collection status (success/partial/failed).
 
-- **Alert Rule**: A condition that triggers notifications. Attributes: server reference (or null for default), severity level, metric parameter, condition operator, threshold value(s), reminder interval, notify on dismissal flag, dismissal threshold, enabled flag, current state (normal/triggered).
+- **Alert Rule**: A condition that triggers notifications. Attributes: server reference (or null for default), severity level, metric type (from expanded metric list including uptime), metric parameter, condition operator, threshold value(s), optional value-based dismissal threshold(s) for hysteresis, reminder interval, notify on dismissal flag, enabled flag (controlled from rules list, not from form), current state (normal/triggered).
 
 - **Alert Event**: A record of an alert triggering or clearing. Attributes: alert rule reference, event type (triggered/reminded/dismissed), timestamp, metric value at event time, notification delivery status.
 
@@ -237,7 +239,7 @@ As a user, I want to edit server configurations, temporarily disable monitoring,
 
 - **User**: A person who can access the system. Attributes: username, password hash, created date, last login.
 
-- **Default Alert Template**: A blueprint for alerts auto-applied to new servers. Attributes: same as Alert Rule but without server reference.
+- **Default Alert Template**: Implemented as `AlertRule` records with `is_default_template=true` and `server=null`, cloned into server-specific `AlertRule` records on server creation.
 
 ## Success Criteria *(mandatory)*
 
@@ -270,7 +272,7 @@ As a user, I want to edit server configurations, temporarily disable monitoring,
 
 ## Assumptions
 
-- Target servers are Linux-based and have standard commands available (top, free, df, uptime, cat /proc/*).
+- Target servers are Linux-based and have standard commands available (/proc/loadavg, /proc/meminfo, /proc/uptime, nproc, df -kPT).
 - SSH access is available on target servers with appropriate permissions to read system metrics.
 - The monitoring system has reliable network connectivity to target servers.
 - Users have basic familiarity with SSH credentials and server administration.

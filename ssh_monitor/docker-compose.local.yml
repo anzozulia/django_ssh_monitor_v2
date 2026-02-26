@@ -1,0 +1,82 @@
+services:
+  app:
+    build:
+      context: .
+      target: local
+    ports:
+      - "8001:8000"
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    env_file:
+      - .env.docker_local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: python manage.py runserver 0.0.0.0:8000
+
+  celery-worker:
+    build:
+      context: .
+      target: local
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    env_file:
+      - .env.docker_local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A ssh_monitor worker --loglevel=info
+
+  celery-beat:
+    build:
+      context: .
+      target: local
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    env_file:
+      - .env.docker_local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A ssh_monitor beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+
+  postgres:
+    image: postgres:16-alpine
+    volumes:
+      - ./docker_data/postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ssh_monitor
+      POSTGRES_USER: ssh_monitor
+      POSTGRES_PASSWORD: ssh_monitor
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ssh_monitor -d ssh_monitor"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - ./docker_data/redis:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+networks:
+  default:
+    name: ssh_monitor_network

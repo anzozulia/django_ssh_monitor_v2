@@ -49,12 +49,23 @@
 │ load_1min             │ Float (nullable)                         │
 │ load_5min             │ Float (nullable)                         │
 │ load_15min            │ Float (nullable)                         │
+│ cpu_cores             │ PositiveInt (nullable)                   │
 │ ram_total_bytes       │ BigInt (nullable)                        │
 │ ram_used_bytes        │ BigInt (nullable)                        │
+│ ram_free_bytes        │ BigInt (nullable)                        │
+│ ram_available_bytes   │ BigInt (nullable)                        │
+│ ram_cached_bytes      │ BigInt (nullable)                        │
+│ ram_buffers_bytes     │ BigInt (nullable)                        │
+│ ram_shared_bytes      │ BigInt (nullable)                        │
 │ ram_percent           │ Float (nullable)                         │
+│ ram_free_percent      │ Float (nullable)                         │
+│ ram_available_percent │ Float (nullable)                         │
 │ swap_total_bytes      │ BigInt (nullable)                        │
 │ swap_used_bytes       │ BigInt (nullable)                        │
+│ swap_free_bytes       │ BigInt (nullable)                        │
+│ swap_cached_bytes     │ BigInt (nullable)                        │
 │ swap_percent          │ Float (nullable)                         │
+│ swap_free_percent     │ Float (nullable)                        │
 │ uptime_seconds        │ BigInt (nullable)                        │
 │ error_message         │ Text (nullable, for failed collections)  │
 ├─────────────────────────────────────────────────────────────────┤
@@ -69,43 +80,29 @@
 │ id                    │ PK                                       │
 │ snapshot_id           │ FK → MetricSnapshot                      │
 │ mount_point           │ e.g., "/", "/home", "/var"               │
+│ filesystem            │ e.g., "ext4", "xfs" (default "")         │
 │ total_bytes           │ BigInt                                   │
 │ used_bytes            │ BigInt                                   │
+│ available_bytes       │ BigInt (nullable)                        │
 │ percent               │ Float                                    │
 ├─────────────────────────────────────────────────────────────────┤
 │ INDEX: (snapshot_id)                                            │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                    DefaultAlertTemplate                          │
-├─────────────────────────────────────────────────────────────────┤
-│ id                    │ PK                                       │
-│ name                  │ Display name for template                │
-│ severity              │ ENUM: warning, critical                  │
-│ metric_type           │ ENUM: cpu_load, ram_percent, disk_percent│
-│                       │       swap_percent, custom               │
-│ metric_param          │ Additional param (e.g., mount point)     │
-│ condition             │ ENUM: gt, lt, eq, gte, lte, in_range,    │
-│                       │       out_of_range                       │
-│ threshold_value       │ Float                                    │
-│ threshold_value_2     │ Float (nullable, for range conditions)   │
-│ reminder_interval_min │ 0 (off) or 15-1440                       │
-│ notify_on_dismissal   │ Boolean                                  │
-│ dismissal_threshold_min│ Minutes condition must clear before     │
-│                       │ dismissal notification                   │
-│ enabled               │ Boolean                                  │
-│ created_at            │ Timestamp                                │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
 │                        AlertRule                                 │
 ├─────────────────────────────────────────────────────────────────┤
 │ id                    │ PK                                       │
-│ server_id             │ FK → Server                              │
+│ server_id             │ FK → Server (nullable for templates)     │
+│ is_default_template   │ Boolean                                  │
 │ name                  │ Display name                             │
 │ severity              │ ENUM: warning, critical                  │
-│ metric_type           │ ENUM: cpu_load, ram_percent, disk_percent│
-│                       │       swap_percent, custom               │
+│ metric_type           │ ENUM: cpu_load_1/5/15, ram_percent,     │
+│                       │       ram_used/free/available/cached,    │
+│                       │       ram_free_pct, ram_available_pct,   │
+│                       │       swap_percent/used/free/free_pct,   │
+│                       │       disk_percent/used/free/free_pct,   │
+│                       │       uptime, custom                     │
 │ metric_param          │ Additional param (e.g., mount point)     │
 │ condition             │ ENUM: gt, lt, eq, gte, lte, in_range,    │
 │                       │       out_of_range                       │
@@ -113,14 +110,13 @@
 │ threshold_value_2     │ Float (nullable, for range conditions)   │
 │ reminder_interval_min │ 0 (off) or 15-1440                       │
 │ notify_on_dismissal   │ Boolean                                  │
-│ dismissal_threshold_min│ Minutes condition must clear before     │
-│                       │ dismissal notification                   │
+│ dismissal_threshold_value│ Float (nullable, value-based hysteresis)│
+│ dismissal_threshold_value_2│ Float (nullable, for range dismissal)│
 │ enabled               │ Boolean                                  │
 │ current_state         │ ENUM: normal, triggered                  │
 │ triggered_at          │ Timestamp (nullable)                     │
 │ last_reminder_at      │ Timestamp (nullable)                     │
 │ condition_cleared_at  │ Timestamp (nullable, for dismissal calc) │
-│ cloned_from_template_id│ FK → DefaultAlertTemplate (nullable)    │
 │ created_at            │ Timestamp                                │
 │ updated_at            │ Timestamp                                │
 ├─────────────────────────────────────────────────────────────────┤
@@ -234,15 +230,28 @@ class MetricSnapshot(models.Model):
     load_5min = models.FloatField(null=True, blank=True)
     load_15min = models.FloatField(null=True, blank=True)
     
+    # CPU
+    cpu_cores = models.PositiveIntegerField(null=True, blank=True)
+    
     # RAM
     ram_total_bytes = models.BigIntegerField(null=True, blank=True)
     ram_used_bytes = models.BigIntegerField(null=True, blank=True)
+    ram_free_bytes = models.BigIntegerField(null=True, blank=True)
+    ram_available_bytes = models.BigIntegerField(null=True, blank=True)
+    ram_cached_bytes = models.BigIntegerField(null=True, blank=True)
+    ram_buffers_bytes = models.BigIntegerField(null=True, blank=True)
+    ram_shared_bytes = models.BigIntegerField(null=True, blank=True)
     ram_percent = models.FloatField(null=True, blank=True)
+    ram_free_percent = models.FloatField(null=True, blank=True)
+    ram_available_percent = models.FloatField(null=True, blank=True)
     
     # Swap
     swap_total_bytes = models.BigIntegerField(null=True, blank=True)
     swap_used_bytes = models.BigIntegerField(null=True, blank=True)
+    swap_free_bytes = models.BigIntegerField(null=True, blank=True)
+    swap_cached_bytes = models.BigIntegerField(null=True, blank=True)
     swap_percent = models.FloatField(null=True, blank=True)
+    swap_free_percent = models.FloatField(null=True, blank=True)
     
     # Uptime
     uptime_seconds = models.BigIntegerField(null=True, blank=True)
@@ -264,8 +273,10 @@ class DiskMetric(models.Model):
         related_name='disk_metrics'
     )
     mount_point = models.CharField(max_length=255)
+    filesystem = models.CharField(max_length=255, blank=True, default="", db_default="")
     total_bytes = models.BigIntegerField()
     used_bytes = models.BigIntegerField()
+    available_bytes = models.BigIntegerField(null=True, blank=True)
     percent = models.FloatField()
 
     class Meta:
@@ -291,9 +302,21 @@ class MetricType(models.TextChoices):
     CPU_LOAD_15 = 'cpu_load_15', 'CPU Load (15 min)'
     RAM_PERCENT = 'ram_percent', 'RAM Usage %'
     RAM_USED = 'ram_used', 'RAM Used (bytes)'
+    RAM_FREE = 'ram_free', 'RAM Free (bytes)'
+    RAM_AVAILABLE = 'ram_available', 'RAM Available (bytes)'
+    RAM_CACHED = 'ram_cached', 'RAM Cached (bytes)'
+    RAM_FREE_PCT = 'ram_free_pct', 'RAM Free %'
+    RAM_AVAILABLE_PCT = 'ram_available_pct', 'RAM Available %'
     SWAP_PERCENT = 'swap_percent', 'Swap Usage %'
+    SWAP_USED = 'swap_used', 'Swap Used (bytes)'
+    SWAP_FREE = 'swap_free', 'Swap Free (bytes)'
+    SWAP_FREE_PCT = 'swap_free_pct', 'Swap Free %'
     DISK_PERCENT = 'disk_percent', 'Disk Usage %'
     DISK_USED = 'disk_used', 'Disk Used (bytes)'
+    DISK_FREE = 'disk_free', 'Disk Free (bytes)'
+    DISK_FREE_PCT = 'disk_free_pct', 'Disk Free %'
+    UPTIME = 'uptime', 'Uptime (seconds)'
+    CUSTOM = 'custom', 'Custom'
 
 class Condition(models.TextChoices):
     GT = 'gt', 'Greater than'
@@ -309,32 +332,16 @@ class AlertState(models.TextChoices):
     TRIGGERED = 'triggered', 'Triggered'
 
 
-class DefaultAlertTemplate(models.Model):
-    """Blueprint for alerts auto-applied to new servers."""
-    name = models.CharField(max_length=255)
-    severity = models.CharField(max_length=10, choices=Severity.choices)
-    metric_type = models.CharField(max_length=20, choices=MetricType.choices)
-    metric_param = models.CharField(max_length=255, blank=True, default='')
-    condition = models.CharField(max_length=20, choices=Condition.choices)
-    threshold_value = models.FloatField()
-    threshold_value_2 = models.FloatField(null=True, blank=True)
-    reminder_interval_minutes = models.PositiveIntegerField(default=0)
-    notify_on_dismissal = models.BooleanField(default=False)
-    dismissal_threshold_minutes = models.PositiveIntegerField(default=5)
-    enabled = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return self.name
-
-
 class AlertRule(models.Model):
-    """Alert rule for a specific server (may be cloned from template)."""
+    """Alert rule for a specific server or a default template."""
     server = models.ForeignKey(
         Server,
         on_delete=models.CASCADE,
-        related_name='alert_rules'
+        related_name='alert_rules',
+        null=True,
+        blank=True,
     )
+    is_default_template = models.BooleanField(default=False)
     name = models.CharField(max_length=255)
     severity = models.CharField(max_length=10, choices=Severity.choices)
     metric_type = models.CharField(max_length=20, choices=MetricType.choices)
@@ -344,7 +351,8 @@ class AlertRule(models.Model):
     threshold_value_2 = models.FloatField(null=True, blank=True)
     reminder_interval_minutes = models.PositiveIntegerField(default=0)
     notify_on_dismissal = models.BooleanField(default=False)
-    dismissal_threshold_minutes = models.PositiveIntegerField(default=5)
+    dismissal_threshold_value = models.FloatField(null=True, blank=True)
+    dismissal_threshold_value_2 = models.FloatField(null=True, blank=True)
     enabled = models.BooleanField(default=True)
     
     # State tracking
@@ -356,15 +364,6 @@ class AlertRule(models.Model):
     triggered_at = models.DateTimeField(null=True, blank=True)
     last_reminder_at = models.DateTimeField(null=True, blank=True)
     condition_cleared_at = models.DateTimeField(null=True, blank=True)
-    
-    # Template tracking
-    cloned_from_template = models.ForeignKey(
-        DefaultAlertTemplate,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='cloned_rules'
-    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

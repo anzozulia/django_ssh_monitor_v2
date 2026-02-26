@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ server.name }} - SSH Monitor{% endblock %}
+{% block page_title %}{{ server.name }}{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/metrics-polling.js' %}"></script>
+<script>
+    window.addEventListener("DOMContentLoaded", function () {
+        initMetricsPage({
+            serverId: {{ server.id }},
+            selectedRange: "{{ selected_range }}",
+            initialHistory: {{ history_json|safe }},
+            initialAlertPeriods: {{ alert_periods_json|safe }}
+        });
+    });
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-screen-2xl space-y-6">
+    {# Connection Status Banner #}
+    {% if server.connection_status == 'unreachable' %}
+    <div class="rounded-xl border border-error-500 bg-error-50 px-5 py-3 text-theme-sm text-error-700">
+        Server is unreachable. Last error: {% if latest and latest.error_message %}{{ latest.error_message }}{% else %}Unknown{% endif %}
+    </div>
+    {% endif %}
+
+    {# Metric Cards #}
+    <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5 md:gap-6">
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs">
+            <span class="text-theme-xs text-gray-500 uppercase tracking-wider">Load (1m)</span>
+            <p class="mt-1 text-2xl font-bold text-gray-900" id="metric-load">{% if latest and latest.load_1min != None %}{{ latest.load_1min|floatformat:2 }}{% else %}-{% endif %}</p>
+        </div>
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs">
+            <span class="text-theme-xs text-gray-500 uppercase tracking-wider">RAM Usage</span>
+            <p class="mt-1 text-2xl font-bold text-gray-900" id="metric-ram">{% if latest and latest.ram_percent != None %}{{ latest.ram_percent|floatformat:2 }}%{% else %}-{% endif %}</p>
+        </div>
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs">
+            <span class="text-theme-xs text-gray-500 uppercase tracking-wider">RAM Available</span>
+            <p class="mt-1 text-2xl font-bold text-gray-900" id="metric-ram-available">{% if latest and latest.ram_available_percent != None %}{{ latest.ram_available_percent|floatformat:2 }}%{% else %}-{% endif %}</p>
+        </div>
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs">
+            <span class="text-theme-xs text-gray-500 uppercase tracking-wider">Swap Usage</span>
+            <p class="mt-1 text-2xl font-bold text-gray-900" id="metric-swap">{% if latest and latest.swap_percent != None %}{{ latest.swap_percent|floatformat:2 }}%{% else %}-{% endif %}</p>
+        </div>
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs">
+            <span class="text-theme-xs text-gray-500 uppercase tracking-wider">Uptime</span>
+            <p class="mt-1 text-2xl font-bold text-gray-900" id="metric-uptime">{% if latest and latest.uptime_seconds != None %}{{ latest.uptime_seconds }}{% else %}-{% endif %}</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {# Disk Metrics #}
+        <div class="lg:col-span-2 rounded-2xl border border-gray-200 bg-white shadow-theme-xs">
+            <div class="border-b border-gray-200 px-5 py-4">
+                <h3 class="text-lg font-semibold text-gray-900">Disk Usage</h3>
+            </div>
+            <div class="p-5" id="disks-container">
+                {% if disks %}
+                <div class="space-y-2">
+                    {% for disk in disks %}
+                    <div class="rounded-xl border border-gray-100 p-3">
+                        <div class="mb-1 flex items-center justify-between text-base">
+                            <span class="font-medium text-gray-700">{{ disk.mount_point }}</span>
+                            <span class="text-gray-500">{{ disk.percent|floatformat:2 }}%</span>
+                        </div>
+                        <div class="mb-1 text-theme-sm text-gray-500">
+                            Used: {{ disk.used_bytes|filesizeformat }} | Free: {{ disk.available_bytes|filesizeformat }} | Total: {{ disk.total_bytes|filesizeformat }}
+                        </div>
+                        <div class="h-2 w-full rounded-full bg-gray-100">
+                            <div class="h-2 rounded-full {% if disk.percent > 90 %}bg-error-500{% elif disk.percent > 75 %}bg-warning-500{% else %}bg-brand-500{% endif %}" style="width: {{ disk.percent|floatformat:2 }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-theme-sm text-gray-400">No disk data yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {# Server Info #}
+        <div class="rounded-2xl border border-gray-200 bg-white shadow-theme-xs">
+            <div class="border-b border-gray-200 px-5 py-4">
+                <h3 class="text-lg font-semibold text-gray-900">Server Info</h3>
+            </div>
+            <div class="p-5 text-theme-sm">
+                <div class="space-y-3">
+                    <p class="text-theme-xs font-semibold uppercase tracking-wider text-gray-500">Connection</p>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Status</span>
+                        <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-theme-xs font-medium {% if server.connection_status == 'online' %}bg-success-50 text-success-700{% elif server.connection_status == 'unreachable' %}bg-error-50 text-error-700{% else %}bg-warning-50 text-warning-700{% endif %}" id="metrics-status">
+                            <span class="inline-block w-1.5 h-1.5 rounded-full {% if server.connection_status == 'online' %}bg-success-500{% elif server.connection_status == 'unreachable' %}bg-error-500{% else %}bg-warning-500{% endif %}"></span>
+                            {{ server.get_connection_status_display }}
+                        </span>
+                    </div>
+                    <div class="flex justify-between"><span class="text-gray-500">Host</span><span class="text-right text-gray-900">{{ server.host }}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Port</span><span class="text-right text-gray-900">{{ server.port }}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">SSH User</span><span class="text-gray-900">{{ server.ssh_username }}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Auth Type</span><span class="text-right text-gray-900">{{ server.get_auth_type_display }}</span></div>
+                
+                </div>
+
+                <div class="mt-4 border-t border-gray-100 pt-4 space-y-3">
+                    <p class="text-theme-xs font-semibold uppercase tracking-wider text-gray-500">Monitoring</p>
+                    <div class="flex justify-between"><span class="text-gray-500">Interval</span><span class="text-gray-900">{{ server.check_interval_minutes }}m</span></div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-500">Enabled</span>
+                        <label class="inline-flex cursor-pointer items-center gap-2">
+                            <input
+                                type="checkbox"
+                                class="peer sr-only"
+                                data-async-toggle="true"
+                                data-toggle-url="{% url 'servers:toggle-monitoring' pk=server.id %}"
+                                {% if server.monitoring_enabled %}checked{% endif %}
+                            >
+                            <span class="relative h-6 w-11 rounded-full bg-gray-200 transition-colors peer-checked:bg-brand-500 before:absolute before:left-0.5 before:top-0.5 before:h-5 before:w-5 before:rounded-full before:bg-white before:transition-transform peer-checked:before:translate-x-5"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mt-4 border-t border-gray-100 pt-4 space-y-3">
+                    <p class="text-theme-xs font-semibold uppercase tracking-wider text-gray-500">Resources</p>
+                    <div class="flex justify-between"><span class="text-gray-500">CPU Cores</span><span class="text-gray-900" id="metric-cpu-cores">{{ resource_totals.cpu_cores|default:"-" }}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Total RAM</span><span class="text-right text-gray-900" id="metric-ram-total">{% if resource_totals.ram_total_bytes != None %}{{ resource_totals.ram_total_bytes|filesizeformat }}{% else %}-{% endif %}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Total Swap</span><span class="text-right text-gray-900" id="metric-swap-total">{% if resource_totals.swap_total_bytes != None %}{{ resource_totals.swap_total_bytes|filesizeformat }}{% else %}-{% endif %}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Total Disk</span><span class="text-right text-gray-900" id="metric-disk-total">{% if resource_totals.disk_total_bytes != None %}{{ resource_totals.disk_total_bytes|filesizeformat }}{% else %}-{% endif %}</span></div>
+                </div>
+
+                <div class="mt-4 border-t border-error-100 pt-4 space-y-3">
+                    <p class="text-theme-xs font-semibold uppercase tracking-wider text-error-600">Danger Zone</p>
+                    <a href="{% url 'servers:update' pk=server.id %}" class="block w-full rounded-lg border border-warning-300 bg-warning-50 px-4 py-2.5 text-center text-theme-sm font-medium text-warning-700 hover:bg-warning-100">
+                        Edit Server Settings
+                    </a>
+                    <form method="post" action="{% url 'servers:delete' pk=server.id %}" onsubmit="return confirm('Delete server {{ server.name }}? This will remove all collected metrics and alert rules for this server.')">
+                        {% csrf_token %}
+                        <button type="submit" class="w-full rounded-lg border border-error-300 bg-error-50 px-4 py-2.5 text-theme-sm font-medium text-error-700 hover:bg-error-100">
+                            Delete Server
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="rounded-2xl border border-gray-200 bg-white shadow-theme-xs">
+        <div class="border-b border-gray-200 px-5 py-4">
+            <h3 class="text-lg font-semibold text-gray-900">Memory Breakdown</h3>
+        </div>
+        <div class="grid grid-cols-1 gap-4 p-5 text-theme-sm md:grid-cols-2 lg:grid-cols-4">
+            <div class="rounded-xl border border-gray-100 p-4">
+                <p class="text-sm text-gray-500">Used</p>
+                <p class="mt-1 text-lg font-semibold text-gray-900">
+                    <span id="metric-ram-used-abs">{% if latest and latest.ram_used_bytes != None %}{{ latest.ram_used_bytes|filesizeformat }}{% else %}-{% endif %}</span>
+                    <span class="text-gray-500" id="metric-ram-used-pct">
+                        {% if latest and latest.ram_total_bytes and latest.ram_used_bytes != None %}({% widthratio latest.ram_used_bytes latest.ram_total_bytes 100 %}%){% else %}(-){% endif %}
+                    </span>
+                </p>
+            </div>
+            <div class="rounded-xl border border-gray-100 p-4">
+                <p class="text-sm text-gray-500">Free</p>
+                <p class="mt-1 text-lg font-semibold text-gray-900">
+                    <span id="metric-ram-free-abs">{% if latest and latest.ram_free_bytes != None %}{{ latest.ram_free_bytes|filesizeformat }}{% else %}-{% endif %}</span>
+                    <span class="text-gray-500" id="metric-ram-free-pct">
+                        {% if latest and latest.ram_total_bytes and latest.ram_free_bytes != None %}({% widthratio latest.ram_free_bytes latest.ram_total_bytes 100 %}%){% else %}(-){% endif %}
+                    </span>
+                </p>
+            </div>
+            <div class="rounded-xl border border-gray-100 p-4">
+                <p class="text-sm text-gray-500">Available</p>
+                <p class="mt-1 text-lg font-semibold text-gray-900">
+                    <span id="metric-ram-available-abs">{% if latest and latest.ram_available_bytes != None %}{{ latest.ram_available_bytes|filesizeformat }}{% else %}-{% endif %}</span>
+                    <span class="text-gray-500" id="metric-ram-available-pct">
+                        {% if latest and latest.ram_total_bytes and latest.ram_available_bytes != None %}({% widthratio latest.ram_available_bytes latest.ram_total_bytes 100 %}%){% else %}(-){% endif %}
+                    </span>
+                </p>
+            </div>
+            <div class="rounded-xl border border-gray-100 p-4">
+                <p class="text-sm text-gray-500">Cache</p>
+                <p class="mt-1 text-lg font-semibold text-gray-900">
+                    <span id="metric-ram-cache-abs">{% if latest and latest.ram_cached_bytes != None %}{{ latest.ram_cached_bytes|filesizeformat }}{% else %}-{% endif %}</span>
+                    <span class="text-gray-500" id="metric-ram-cache-pct">
+                        {% if latest and latest.ram_total_bytes and latest.ram_cached_bytes != None %}({% widthratio latest.ram_cached_bytes latest.ram_total_bytes 100 %}%){% else %}(-){% endif %}
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="rounded-2xl border border-gray-200 bg-white shadow-theme-xs">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-5 py-4">
+            <h3 class="text-lg font-semibold text-gray-900">Historical Metrics</h3>
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" data-range-value="1h" class="rounded-lg border px-3 py-1.5 text-theme-sm font-medium transition-colors">1h</button>
+                <button type="button" data-range-value="6h" class="rounded-lg border px-3 py-1.5 text-theme-sm font-medium transition-colors">6h</button>
+                <button type="button" data-range-value="24h" class="rounded-lg border px-3 py-1.5 text-theme-sm font-medium transition-colors">24h</button>
+                <button type="button" data-range-value="7d" class="rounded-lg border px-3 py-1.5 text-theme-sm font-medium transition-colors">7d</button>
+                <button type="button" data-range-value="30d" class="rounded-lg border px-3 py-1.5 text-theme-sm font-medium transition-colors">30d</button>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 gap-5 p-5 md:grid-cols-2">
+            <div class="rounded-xl border border-gray-100 p-4">
+                <p class="mb-3 text-sm font-medium text-gray-700">CPU Load (1m)</p>
+                <div id="chart-cpu" class="h-56"></div>
+            </div>
+            <div class="rounded-xl border border-gray-100 p-4">
+                <p class="mb-3 text-sm font-medium text-gray-700">RAM Usage (%)</p>
+                <div id="chart-ram" class="h-56"></div>
+            </div>
+            <div class="rounded-xl border border-gray-100 p-4">
+                <p class="mb-3 text-sm font-medium text-gray-700">Swap Usage (%)</p>
+                <div id="chart-swap" class="h-56"></div>
+            </div>
+            <div class="rounded-xl border border-gray-100 p-4">
+                <p class="mb-3 text-sm font-medium text-gray-700">Top Disk Usage (%)</p>
+                <div id="chart-disk" class="h-56"></div>
+            </div>
+        </div>
+    </div>
+
+    {# Alert Rules Summary #}
+    <div class="rounded-2xl border border-gray-200 bg-white shadow-theme-xs">
+        <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+            <h3 class="text-lg font-semibold text-gray-900">Alert Rules</h3>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'alerts:server-history' server_pk=server.id %}" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 hover:bg-gray-50">
+                    View History
+                </a>
+                <a href="{% url 'alerts:create' server_pk=server.id %}" class="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs hover:bg-brand-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    Add Alert
+                </a>
+            </div>
+        </div>
+        <div class="p-5">
+            {% with rules=server.alert_rules.all %}
+            {% if rules %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-200">
+                            <th class="px-2 py-2 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500">Name</th>
+                            <th class="px-2 py-2 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500">Severity</th>
+                            <th class="px-2 py-2 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500">Metric</th>
+                            <th class="px-2 py-2 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500">Condition</th>
+                            <th class="px-2 py-2 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500">State</th>
+                            <th class="px-2 py-2 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500">Enabled</th>
+                            <th class="px-2 py-2 text-right text-theme-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for rule in rules %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-2 py-3 text-theme-sm font-medium text-gray-900">{{ rule.name }}</td>
+                            <td class="px-2 py-3">
+                                <span class="inline-flex rounded-full px-2.5 py-0.5 text-theme-xs font-medium {% if rule.severity == 'critical' %}bg-error-50 text-error-700{% else %}bg-warning-50 text-warning-700{% endif %}">
+                                    {{ rule.get_severity_display }}
+                                </span>
+                            </td>
+                            <td class="px-2 py-3 text-theme-sm text-gray-700">{{ rule.get_metric_type_display }}{% if rule.metric_param %} ({{ rule.metric_param }}){% endif %}</td>
+                            <td class="px-2 py-3 text-theme-sm text-gray-700">{{ rule.get_condition_display }} {{ rule.threshold_value|floatformat:2 }}{% if rule.threshold_value_2 %} .. {{ rule.threshold_value_2|floatformat:2 }}{% endif %}</td>
+                            <td class="px-2 py-3">
+                                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-theme-xs font-medium {% if rule.current_state == 'triggered' %}bg-error-50 text-error-700{% else %}bg-success-50 text-success-700{% endif %}">
+                                    <span class="inline-block h-1.5 w-1.5 rounded-full {% if rule.current_state == 'triggered' %}bg-error-500{% else %}bg-success-500{% endif %}"></span>
+                                    {{ rule.get_current_state_display }}
+                                </span>
+                            </td>
+                            <td class="px-2 py-3">
+                                <label class="inline-flex cursor-pointer items-center gap-2 {% if rule.metric_type == 'custom' and rule.metric_param == 'ssh_connectivity' %}opacity-60 cursor-not-allowed{% endif %}">
+                                    <input
+                                        type="checkbox"
+                                        class="peer sr-only"
+                                        data-async-toggle="true"
+                                        data-toggle-url="{% url 'alerts:toggle' pk=rule.id %}"
+                                        {% if rule.enabled %}checked{% endif %}
+                                        {% if rule.metric_type == 'custom' and rule.metric_param == 'ssh_connectivity' %}disabled{% endif %}
+                                    >
+                                    <span class="relative h-6 w-11 rounded-full bg-gray-200 transition-colors peer-checked:bg-brand-500 before:absolute before:left-0.5 before:top-0.5 before:h-5 before:w-5 before:rounded-full before:bg-white before:transition-transform peer-checked:before:translate-x-5"></span>
+                                </label>
+                            </td>
+                            <td class="px-2 py-3">
+                                <div class="flex items-center justify-end gap-2">
+                                    <a href="{% url 'alerts:update' pk=rule.id %}" class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-500" title="Edit">
+                                        <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    </a>
+                                    <form method="post" action="{% url 'alerts:delete' pk=rule.id %}" onsubmit="return confirm('Delete this alert rule?')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-error-600" title="Delete">
+                                            <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="py-8 text-center">
+                <p class="text-theme-sm text-gray-400">No alert rules configured.</p>
+            </div>
+            {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+
+    <div class="text-right text-theme-xs text-gray-400" id="last-updated"></div>
+</div>
+{% endblock %}

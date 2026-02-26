@@ -1,0 +1,51 @@
+# Git
+.git/
+.gitignore
+
+# Docker
+docker_data/
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+*.egg-info/
+
+# Environment files
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Logs
+logs/
+*.log
+
+# Documentation
+*.md
+!README.md
+specs/
+
+# macOS
+.DS_Store
+
+# Node modules (for Tailwind - built in container)
+theme/static_src/node_modules/
+node_modules/
+coverage/
+Thumbs.db

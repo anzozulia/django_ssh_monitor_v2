@@ -1,0 +1,12 @@
+{
+  "name": "ssh-monitor-theme",
+  "version": "1.0.0",
+  "description": "Tailwind CSS theme for SSH Monitor",
+  "scripts": {
+    "dev": "npx @tailwindcss/cli -i ./src/styles.css -o ../../static/css/dist/styles.css --watch",
+    "build": "npx @tailwindcss/cli -i ./src/styles.css -o ../../static/css/dist/styles.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.0.0"
+  }
+}

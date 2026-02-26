@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Telegram Configuration - SSH Monitor{% endblock %}
+{% block page_title %}Telegram Configuration{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-screen-2xl">
+    <div class="rounded-2xl border border-gray-200 bg-white shadow-theme-xs">
+        <div class="border-b border-gray-200 px-5 py-4 sm:px-6">
+            <h3 class="text-lg font-semibold text-gray-900">Telegram Channel</h3>
+            <p class="mt-1 text-theme-sm text-gray-500">Configure bot token and chat ID for alert delivery.</p>
+        </div>
+        <div class="p-5 sm:p-6">
+            <div class="mb-5 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                <p class="text-theme-sm text-gray-600">
+                    Channel status: <span class="font-medium text-gray-800">{{ channel.get_validation_status_display }}</span>
+                    {% if channel.last_validated_at %}• Last validated: {{ channel.last_validated_at }}{% endif %}
+                </p>
+            </div>
+
+            <form method="post" class="space-y-5" id="telegram-config-form">
+                {% csrf_token %}
+                <div>
+                    <label for="{{ form.bot_token.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">Bot Token</label>
+                    {{ form.bot_token }}
+                    {% for error in form.bot_token.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                    <label for="{{ form.chat_id.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">Chat / Group ID</label>
+                    {{ form.chat_id }}
+                    {% for error in form.chat_id.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <button type="submit" class="rounded-lg bg-brand-500 px-5 py-2.5 text-theme-sm font-medium text-white hover:bg-brand-600">Save</button>
+                    <button type="submit" form="telegram-test-form" class="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-theme-sm font-medium text-gray-700 hover:bg-gray-50">Send Test</button>
+                    <a href="{% url 'notifications:list' %}" class="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-theme-sm font-medium text-gray-700 hover:bg-gray-50">Back</a>
+                </div>
+            </form>
+            <form method="post" action="{% url 'notifications:telegram-test' %}" id="telegram-test-form" class="hidden">
+                {% csrf_token %}
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

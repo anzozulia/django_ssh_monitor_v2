@@ -100,55 +100,40 @@ PeriodicTask.objects.update_or_create(
 
 ## Frontend Stack
 
-### Decision: Tailwind CSS + Chart.js + Vanilla JS
+### Decision: Tailwind CSS + ApexCharts + Vanilla JS
 
 ### Rationale
 - **Tailwind CSS**: Utility-first CSS for rapid admin panel styling
-- **Chart.js**: Lightweight, well-documented charting for time-series metrics
+- **ApexCharts**: Better visual alignment with TailAdmin design patterns
 - **Vanilla JS**: Simple polling without SPA complexity
 
-### django-tailwind Setup
+### Tailwind Setup
 
-Using `django-tailwind` package (npm-based) for:
+Using Tailwind CSS v4 via `@tailwindcss/cli` for:
 - JIT compilation during development
 - Purged CSS for production builds
 - Integration with Django's static files
 
-### Chart.js Integration
+### ApexCharts Integration
 
 ```javascript
 // Unified rendering function for initial load and polling updates
-function renderMetricsChart(canvasId, metricsData) {
-    const ctx = document.getElementById(canvasId).getContext('2d');
-    
-    // Destroy existing chart if updating
-    if (window.charts && window.charts[canvasId]) {
-        window.charts[canvasId].destroy();
+function renderMetricsChart(containerId, metricsData) {
+    const container = document.getElementById(containerId);
+    if (!container || !window.ApexCharts) return;
+
+    if (window.charts && window.charts[containerId]) {
+        window.charts[containerId].destroy();
     }
-    
+
     window.charts = window.charts || {};
-    window.charts[canvasId] = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: metricsData.timestamps,
-            datasets: [{
-                label: metricsData.label,
-                data: metricsData.values,
-                borderColor: metricsData.color,
-                tension: 0.1
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: (context) => `${context.parsed.y}${metricsData.unit}`
-                    }
-                }
-            }
-        }
+    window.charts[containerId] = new ApexCharts(container, {
+        chart: { type: "area", height: 220, animations: { enabled: false } },
+        series: [{ name: metricsData.label, data: metricsData.points }],
+        xaxis: { type: "datetime" },
+        stroke: { curve: "smooth" }
     });
+    window.charts[containerId].render();
 }
 
 // Polling logic
@@ -170,10 +155,9 @@ async function pollMetrics(serverId) {
 | Metric | Command | Output Parsing |
 |--------|---------|----------------|
 | CPU Load | `cat /proc/loadavg` | First 3 values: 1/5/15 min averages |
-| RAM | `free -b` | Parse "Mem:" line for total/used/free |
-| Disk | `df -B1` | Parse each mount point row |
-| Swap | `free -b` | Parse "Swap:" line |
-| Uptime | `cat /proc/uptime` | First value in seconds |
+| RAM/Swap | `cat /proc/meminfo` | Parse key/value lines (MemTotal, MemAvailable, SwapTotal, etc.) |
+| Disk | `df -kPT` | Parse filesystem, blocks, used, available, percent, mount |
+| Uptime | `cat /proc/uptime \| awk '{print $1}'` | First value in seconds |
 
 ### Example Parsing
 

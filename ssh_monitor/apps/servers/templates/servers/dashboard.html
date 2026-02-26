@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SSH Monitor{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-screen-2xl">
+    {# Stat Cards #}
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:gap-6 mb-6">
+        {# Total #}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-theme-sm text-gray-500">Total Servers</span>
+                    <h4 class="mt-1 text-2xl font-bold text-gray-900">{{ total_servers }}</h4>
+                </div>
+                <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50">
+                    <svg class="w-6 h-6 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg>
+                </div>
+            </div>
+        </div>
+        {# Online #}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-theme-sm text-gray-500">Online</span>
+                    <h4 class="mt-1 text-2xl font-bold text-success-600">{{ online_servers }}</h4>
+                </div>
+                <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-success-50">
+                    <svg class="w-6 h-6 text-success-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+            </div>
+        </div>
+        {# Offline #}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-theme-sm text-gray-500">Offline</span>
+                    <h4 class="mt-1 text-2xl font-bold text-error-600">{{ offline_servers }}</h4>
+                </div>
+                <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-error-50">
+                    <svg class="w-6 h-6 text-error-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Fleet Health #}
+    <div class="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <p class="text-theme-sm font-medium text-gray-500">Servers Health Overview</p>
+                <h3 class="mt-1 text-lg font-semibold text-gray-900">
+                    {{ healthy_servers }} healthy, {{ warning_servers }} warning, {{ critical_servers }} critical
+                </h3>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-success-50 px-3 py-1 text-theme-sm font-medium text-success-700">
+                    <span class="inline-block h-2 w-2 rounded-full bg-success-500"></span>
+                    Healthy: {{ healthy_servers }}
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-warning-50 px-3 py-1 text-theme-sm font-medium text-warning-700">
+                    <span class="inline-block h-2 w-2 rounded-full bg-warning-500"></span>
+                    Warning: {{ warning_servers }}
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-error-50 px-3 py-1 text-theme-sm font-medium text-error-700">
+                    <span class="inline-block h-2 w-2 rounded-full bg-error-500"></span>
+                    Critical: {{ critical_servers }}
+                </span>
+            </div>
+        </div>
+
+        <div class="mt-4 h-2 w-full overflow-hidden rounded-full bg-gray-100">
+            {% if total_servers %}
+                <div class="flex h-full w-full">
+                    <div class="h-full bg-success-500" style="width: {{ healthy_pct|floatformat:2 }}%;"></div>
+                    <div class="h-full bg-warning-500" style="width: {{ warning_pct|floatformat:2 }}%;"></div>
+                    <div class="h-full bg-error-500" style="width: {{ critical_pct|floatformat:2 }}%;"></div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Servers Table #}
+    <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-xs">
+        <div class="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
+            <h3 class="text-lg font-semibold text-gray-900">All Servers</h3>
+            <a href="{% url 'servers:create' %}" class="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs hover:bg-brand-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add Server
+            </a>
+        </div>
+        {% if servers %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-t border-gray-200">
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Status</th>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Name</th>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Host</th>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">CPU</th>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">RAM</th>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Disk</th>
+                        <th class="px-5 py-3 text-left text-theme-xs font-medium uppercase tracking-wider text-gray-500 sm:px-6">Last Check</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for server in servers %}
+                    <tr class="cursor-pointer hover:bg-gray-50 transition-colors" onclick="window.location='{% url 'servers:detail' server.id %}'">
+                        <td class="px-5 py-4 sm:px-6">
+                            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-theme-xs font-medium {% if server.connection_status == 'online' %}bg-success-50 text-success-700{% elif server.connection_status == 'unreachable' %}bg-error-50 text-error-700{% else %}bg-warning-50 text-warning-700{% endif %}">
+                                <span class="inline-block w-1.5 h-1.5 rounded-full {% if server.connection_status == 'online' %}bg-success-500{% elif server.connection_status == 'unreachable' %}bg-error-500{% else %}bg-warning-500{% endif %}"></span>
+                                {{ server.get_connection_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-5 py-4 sm:px-6"><span class="font-medium text-gray-900">{{ server.name }}</span></td>
+                        <td class="px-5 py-4 text-theme-sm text-gray-500 sm:px-6">{{ server.host }}:{{ server.port }}</td>
+                        <td class="px-5 py-4 text-theme-sm text-gray-700 sm:px-6">{{ server.latest_load|default:"-" }}</td>
+                        <td class="px-5 py-4 text-theme-sm text-gray-700 sm:px-6">{{ server.latest_ram|default:"-" }}</td>
+                        <td class="px-5 py-4 text-theme-sm text-gray-700 sm:px-6">{{ server.latest_disk|default:"-" }}</td>
+                        <td class="px-5 py-4 text-theme-sm text-gray-500 sm:px-6">{{ server.last_check_at|default:"Never" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="border-t border-gray-200 px-5 py-16 text-center sm:px-6">
+            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg>
+            <h3 class="mt-3 text-theme-sm font-medium text-gray-900">No servers</h3>
+            <p class="mt-1 text-theme-sm text-gray-500">Get started by adding your first server.</p>
+            <div class="mt-5">
+                <a href="{% url 'servers:create' %}" class="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs hover:bg-brand-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    Add Server
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

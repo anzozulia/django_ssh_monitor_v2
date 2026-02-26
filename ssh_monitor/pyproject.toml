@@ -1,0 +1,82 @@
+[project]
+name = "ssh-monitor"
+version = "0.1.0"
+description = "SSH-based server monitoring platform"
+requires-python = ">=3.12"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+exclude = [
+    ".git",
+    ".ruff_cache",
+    "__pycache__",
+    "migrations",
+    ".venv",
+    "venv",
+    "theme/static_src/node_modules",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "DJ",     # flake8-django
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in argument defaults
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "ssh_monitor"]
+
+[tool.black]
+target-version = ["py312"]
+line-length = 120
+exclude = '''
+/(
+    \.git
+    | \.ruff_cache
+    | __pycache__
+    | migrations
+    | \.venv
+    | venv
+    | theme/static_src/node_modules
+)/
+'''
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "ssh_monitor.settings.local"
+python_files = ["test_*.py", "*_test.py"]
+addopts = [
+    "--strict-markers",
+    "-ra",
+    "-q",
+]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["apps"]
+branch = true
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+show_missing = true

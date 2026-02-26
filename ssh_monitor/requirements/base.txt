@@ -1,0 +1,22 @@
+# Core Django
+Django>=5.0,<6.0
+
+# Database
+psycopg2-binary>=2.9.9
+
+# Background Tasks
+celery>=5.3.6
+redis>=5.0.1
+django-celery-beat>=2.6.0
+
+# SSH Connectivity
+paramiko>=3.4.0
+
+# Credential Encryption
+cryptography>=42.0.0
+
+# Environment Configuration
+python-dotenv>=1.0.0
+
+# Production Server
+gunicorn>=21.2.0

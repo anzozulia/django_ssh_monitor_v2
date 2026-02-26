@@ -34,14 +34,13 @@ This document defines all URL routes for the SSH Server Monitor application. Sin
 
 | Method | URL | View | Description |
 |--------|-----|------|-------------|
-| GET | `/servers/` | `ServerListView` | List all servers |
 | GET | `/servers/add/` | `ServerCreateView` | Add server form |
 | POST | `/servers/add/` | `ServerCreateView` | Create server |
 | GET | `/servers/<int:pk>/` | `ServerDetailView` | Server detail page with metrics |
 | GET | `/servers/<int:pk>/edit/` | `ServerUpdateView` | Edit server form |
 | POST | `/servers/<int:pk>/edit/` | `ServerUpdateView` | Update server |
 | POST | `/servers/<int:pk>/delete/` | `ServerDeleteView` | Delete server |
-| POST | `/servers/<int:pk>/toggle/` | `ServerToggleView` | Toggle monitoring on/off |
+| POST | `/servers/<int:pk>/toggle/` | `ServerMonitoringToggleView` | Toggle monitoring on/off (async) |
 
 ### Server Metrics Polling Endpoint
 
@@ -89,15 +88,16 @@ This document defines all URL routes for the SSH Server Monitor application. Sin
 
 ### Server-Specific Alerts
 
+**Note**: Alert rules are listed inline on the server detail page (no separate alert list page). The `ServerAlertListView` was removed.
+
 | Method | URL | View | Description |
 |--------|-----|------|-------------|
-| GET | `/servers/<int:server_pk>/alerts/` | `ServerAlertListView` | List alerts for server |
 | GET | `/servers/<int:server_pk>/alerts/add/` | `AlertRuleCreateView` | Add alert form |
 | POST | `/servers/<int:server_pk>/alerts/add/` | `AlertRuleCreateView` | Create alert |
 | GET | `/alerts/<int:pk>/edit/` | `AlertRuleUpdateView` | Edit alert form |
 | POST | `/alerts/<int:pk>/edit/` | `AlertRuleUpdateView` | Update alert |
 | POST | `/alerts/<int:pk>/delete/` | `AlertRuleDeleteView` | Delete alert |
-| POST | `/alerts/<int:pk>/toggle/` | `AlertRuleToggleView` | Toggle alert enabled |
+| POST | `/alerts/<int:pk>/toggle/` | `AlertRuleToggleView` | Toggle alert enabled (async) |
 
 ### Default Alert Templates
 
@@ -177,16 +177,12 @@ from . import views
 app_name = 'servers'
 
 urlpatterns = [
-    path('', views.ServerListView.as_view(), name='list'),
     path('add/', views.ServerCreateView.as_view(), name='create'),
     path('<int:pk>/', views.ServerDetailView.as_view(), name='detail'),
     path('<int:pk>/edit/', views.ServerUpdateView.as_view(), name='update'),
     path('<int:pk>/delete/', views.ServerDeleteView.as_view(), name='delete'),
-    path('<int:pk>/toggle/', views.ServerToggleView.as_view(), name='toggle'),
+    path('<int:pk>/toggle/', views.ServerMonitoringToggleView.as_view(), name='toggle'),
     path('<int:pk>/metrics/', views.ServerMetricsView.as_view(), name='metrics'),
-    path('<int:pk>/alerts/', views.ServerAlertListView.as_view(), name='alerts'),
-    path('<int:pk>/alerts/add/', views.AlertRuleCreateView.as_view(), name='alert-create'),
-    path('<int:pk>/alerts/history/', views.ServerAlertHistoryView.as_view(), name='alert-history'),
 ]
 ```
 

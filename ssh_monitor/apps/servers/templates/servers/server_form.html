@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}{% if mode == "edit" %}Edit Server{% else %}Add Server{% endif %} - SSH Monitor{% endblock %}
+{% block page_title %}{% if mode == "edit" %}Edit Server{% else %}Add Server{% endif %}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-screen-2xl space-y-6">
+    <div>
+        <nav class="mb-2 flex items-center gap-2 text-theme-sm text-gray-500">
+            <a href="{% url 'servers:dashboard' %}" class="hover:text-brand-500">Dashboard</a>
+            <span>/</span>
+            {% if mode == "edit" %}
+            <a href="{% url 'servers:detail' server.id %}" class="hover:text-brand-500">{{ server.name }}</a>
+            <span>/</span>
+            <span class="text-gray-700">Edit Server</span>
+            {% else %}
+            <span class="text-gray-700">Add Server</span>
+            {% endif %}
+        </nav>
+        <h2 class="text-2xl font-bold text-gray-900 sm:text-title-sm">{% if mode == "edit" %}Edit Server{% else %}Add Server{% endif %}</h2>
+        <p class="mt-1 text-theme-sm text-gray-500">
+            {% if mode == "edit" %}
+            Update SSH access and monitoring settings for {{ server.name }}.
+            {% else %}
+            Register a new host for monitoring and configure SSH access details.
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="rounded-2xl border border-gray-200 bg-white shadow-theme-xs">
+        <div class="border-b border-gray-200 px-5 py-4 sm:px-6">
+            <h3 class="text-lg font-semibold text-gray-900">Server Details</h3>
+        </div>
+        <div class="p-5 sm:p-6">
+            <form
+                method="post"
+                class="space-y-6"
+                x-data="{ authType: '{{ form.auth_type.value|default:'password' }}' }"
+            >
+                {% csrf_token %}
+                <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                    <div>
+                        <label for="{{ form.name.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">
+                            {{ form.name.label }} <span class="text-error-500">*</span>
+                        </label>
+                        <input type="text" name="{{ form.name.html_name }}" id="{{ form.name.id_for_label }}" value="{{ form.name.value|default:'' }}" required class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.name.errors %}border-error-500{% endif %}">
+                        {% for error in form.name.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.host.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">
+                            {{ form.host.label }} <span class="text-error-500">*</span>
+                        </label>
+                        <input type="text" name="{{ form.host.html_name }}" id="{{ form.host.id_for_label }}" value="{{ form.host.value|default:'' }}" required class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.host.errors %}border-error-500{% endif %}">
+                        {% for error in form.host.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.port.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">
+                            {{ form.port.label }} <span class="text-error-500">*</span>
+                        </label>
+                        <input type="number" name="{{ form.port.html_name }}" id="{{ form.port.id_for_label }}" value="{{ form.port.value|default:'' }}" required placeholder="22" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.port.errors %}border-error-500{% endif %}">
+                        {% for error in form.port.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.ssh_username.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">
+                            {{ form.ssh_username.label }} <span class="text-error-500">*</span>
+                        </label>
+                        <input type="text" name="{{ form.ssh_username.html_name }}" id="{{ form.ssh_username.id_for_label }}" value="{{ form.ssh_username.value|default:'' }}" required class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.ssh_username.errors %}border-error-500{% endif %}">
+                        {% for error in form.ssh_username.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.auth_type.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">
+                            {{ form.auth_type.label }} <span class="text-error-500">*</span>
+                        </label>
+                        <select
+                            name="{{ form.auth_type.html_name }}"
+                            id="{{ form.auth_type.id_for_label }}"
+                            x-model="authType"
+                            class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.auth_type.errors %}border-error-500{% endif %}"
+                        >
+                            {% for value, label in form.auth_type.field.choices %}
+                            <option value="{{ value }}" {% if form.auth_type.value == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        {% for error in form.auth_type.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.check_interval_minutes.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">
+                            {{ form.check_interval_minutes.label }} <span class="text-error-500">*</span>
+                        </label>
+                        <input type="number" name="{{ form.check_interval_minutes.html_name }}" id="{{ form.check_interval_minutes.id_for_label }}" value="{{ form.check_interval_minutes.value|default:'' }}" required min="1" max="1440" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.check_interval_minutes.errors %}border-error-500{% endif %}">
+                        {% for error in form.check_interval_minutes.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                    </div>
+
+                    <div class="lg:col-span-2 rounded-xl border border-gray-200 p-4">
+                        <label class="inline-flex cursor-pointer items-center gap-3">
+                            <input
+                                type="checkbox"
+                                name="{{ form.monitoring_enabled.html_name }}"
+                                id="{{ form.monitoring_enabled.id_for_label }}"
+                                {% if form.monitoring_enabled.value %}checked{% endif %}
+                                class="peer sr-only"
+                            >
+                            <span class="relative h-6 w-11 rounded-full bg-gray-200 transition-colors peer-checked:bg-brand-500 before:absolute before:left-0.5 before:top-0.5 before:h-5 before:w-5 before:rounded-full before:bg-white before:transition-transform peer-checked:before:translate-x-5"></span>
+                            <span class="text-theme-sm text-gray-700">{{ form.monitoring_enabled.label }}</span>
+                        </label>
+                        {% for error in form.monitoring_enabled.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                    </div>
+
+                    <div class="lg:col-span-2 rounded-xl border border-gray-200 p-4">
+                        <label for="{{ form.credential_input.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">
+                            <span x-show="authType !== 'key_file'">Credential Password</span>
+                            <span x-show="authType === 'key_file'">SSH Private Key</span>
+                            {% if mode != "edit" %}<span class="text-error-500">*</span>{% endif %}
+                        </label>
+
+                        <input
+                            type="password"
+                            name="{{ form.credential_input.html_name }}"
+                            id="{{ form.credential_input.id_for_label }}_password"
+                            value="{{ form.credential_input.value|default:'' }}"
+                            x-show="authType !== 'key_file'"
+                            x-bind:disabled="authType === 'key_file'"
+                            autocomplete="new-password"
+                            class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.credential_input.errors %}border-error-500{% endif %}"
+                            placeholder="Enter SSH password"
+                        >
+
+                        <textarea
+                            name="{{ form.credential_input.html_name }}"
+                            id="{{ form.credential_input.id_for_label }}"
+                            rows="6"
+                            x-show="authType === 'key_file'"
+                            x-bind:disabled="authType !== 'key_file'"
+                            class="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.credential_input.errors %}border-error-500{% endif %}"
+                            placeholder="Paste private key text here"
+                        >{{ form.credential_input.value|default:'' }}</textarea>
+
+                        <p x-show="authType === 'password'" class="mt-1 text-theme-xs text-gray-500">
+                            {% if mode == "edit" %}Leave empty to keep the current password.{% else %}Use server password authentication.{% endif %}
+                        </p>
+                        <p x-show="authType === 'generated_key'" class="mt-1 text-theme-xs text-gray-500">
+                            {% if mode == "edit" %}Provide password only if you want to regenerate/install a new SSH key.{% else %}Provide password once; system generates and installs an SSH key automatically.{% endif %}
+                        </p>
+                        <p x-show="authType === 'key_file'" class="mt-1 text-theme-xs text-gray-500">
+                            {% if mode == "edit" %}Leave empty to keep the current private key, or paste a new one to replace it.{% else %}Paste full private key contents used for SSH key authentication.{% endif %}
+                        </p>
+
+                        {% for error in form.credential_input.errors %}
+                        <p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 pt-2">
+                    <button type="submit" class="rounded-lg bg-brand-500 px-5 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs hover:bg-brand-600">
+                        {% if mode == "edit" %}Save Changes{% else %}Save Server{% endif %}
+                    </button>
+                    <a href="{% if mode == 'edit' %}{% url 'servers:detail' server.id %}{% else %}{% url 'servers:dashboard' %}{% endif %}" class="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50">
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

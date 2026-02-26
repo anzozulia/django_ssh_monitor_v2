@@ -1,0 +1,86 @@
+services:
+  app:
+    build:
+      context: .
+      target: production
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+      - ./static:/app/static
+    env_file:
+      - .env.docker_production
+    environment:
+      - DJANGO_SETTINGS_MODULE=ssh_monitor.settings.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    command: gunicorn --bind 0.0.0.0:8000 --workers 2 --threads 4 ssh_monitor.wsgi:application
+
+  celery-worker:
+    build:
+      context: .
+      target: production
+    volumes:
+      - ./logs:/app/logs
+    env_file:
+      - .env.docker_production
+    environment:
+      - DJANGO_SETTINGS_MODULE=ssh_monitor.settings.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    command: celery -A ssh_monitor worker --loglevel=info --concurrency=4
+
+  celery-beat:
+    build:
+      context: .
+      target: production
+    volumes:
+      - ./logs:/app/logs
+    env_file:
+      - .env.docker_production
+    environment:
+      - DJANGO_SETTINGS_MODULE=ssh_monitor.settings.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    command: celery -A ssh_monitor beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+
+  postgres:
+    image: postgres:16-alpine
+    volumes:
+      - ./docker_data/postgres:/var/lib/postgresql/data
+    env_file:
+      - .env.docker_production
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - ./docker_data/redis:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+networks:
+  default:
+    name: ssh_monitor_production
