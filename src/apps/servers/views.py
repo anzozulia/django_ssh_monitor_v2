@@ -237,14 +237,23 @@ class ServerCreateView(LoginRequiredMixin, View):
         if not form.is_valid():
             return render(request, self.template_name, {"form": form})
 
-        server = form.save()
+        server = form.save(commit=False)
         if server.auth_type == AuthType.GENERATED_KEY:
             ssh = SSHService(server)
-            private_key = ssh.install_generated_key()
+            use_privileged_bootstrap = form.cleaned_data.get("use_privileged_bootstrap")
+            if use_privileged_bootstrap:
+                private_key = ssh.bootstrap_monitor_user_and_install_key(
+                    privileged_username=form.cleaned_data["privileged_username"].strip(),
+                    privileged_auth_type=form.cleaned_data["privileged_auth_type"],
+                    privileged_credential_input=form.cleaned_data["privileged_credential_input"],
+                    monitor_username=server.ssh_username,
+                )
+            else:
+                private_key = ssh.install_generated_key()
             from apps.core.encryption import encrypt_credential
 
             server.credentials_encrypted = encrypt_credential(private_key)
-            server.save(update_fields=["credentials_encrypted", "updated_at"])
+        server.save()
         create_connectivity_alert_if_available(server)
         clone_default_alerts_if_available(server)
         schedule_server_collection(server)
@@ -269,9 +278,18 @@ class ServerUpdateView(LoginRequiredMixin, View):
 
         updated_server = form.save()
         credential_input = form.cleaned_data.get("credential_input", "").strip()
-        if updated_server.auth_type == AuthType.GENERATED_KEY and credential_input:
+        use_privileged_bootstrap = form.cleaned_data.get("use_privileged_bootstrap")
+        if updated_server.auth_type == AuthType.GENERATED_KEY and (credential_input or use_privileged_bootstrap):
             ssh = SSHService(updated_server)
-            private_key = ssh.install_generated_key()
+            if use_privileged_bootstrap:
+                private_key = ssh.bootstrap_monitor_user_and_install_key(
+                    privileged_username=form.cleaned_data["privileged_username"].strip(),
+                    privileged_auth_type=form.cleaned_data["privileged_auth_type"],
+                    privileged_credential_input=form.cleaned_data["privileged_credential_input"],
+                    monitor_username=updated_server.ssh_username,
+                )
+            else:
+                private_key = ssh.install_generated_key()
             from apps.core.encryption import encrypt_credential
 
             updated_server.credentials_encrypted = encrypt_credential(private_key)

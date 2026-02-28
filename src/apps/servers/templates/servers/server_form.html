@@ -35,7 +35,7 @@
             <form
                 method="post"
                 class="space-y-6"
-                x-data="{ authType: '{{ form.auth_type.value|default:'password' }}' }"
+                x-data="{ authType: '{{ form.auth_type.value|default:'password' }}', usePrivilegedBootstrap: {% if form.use_privileged_bootstrap.value %}true{% else %}false{% endif %}, privilegedAuthType: '{{ form.privileged_auth_type.value|default:'password' }}' }"
             >
                 {% csrf_token %}
                 <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -96,22 +96,7 @@
                         {% for error in form.check_interval_minutes.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
                     </div>
 
-                    <div class="lg:col-span-2 rounded-xl border border-gray-200 p-4">
-                        <label class="inline-flex cursor-pointer items-center gap-3">
-                            <input
-                                type="checkbox"
-                                name="{{ form.monitoring_enabled.html_name }}"
-                                id="{{ form.monitoring_enabled.id_for_label }}"
-                                {% if form.monitoring_enabled.value %}checked{% endif %}
-                                class="peer sr-only"
-                            >
-                            <span class="relative h-6 w-11 rounded-full bg-gray-200 transition-colors peer-checked:bg-brand-500 before:absolute before:left-0.5 before:top-0.5 before:h-5 before:w-5 before:rounded-full before:bg-white before:transition-transform peer-checked:before:translate-x-5"></span>
-                            <span class="text-theme-sm text-gray-700">{{ form.monitoring_enabled.label }}</span>
-                        </label>
-                        {% for error in form.monitoring_enabled.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
-                    </div>
-
-                    <div class="lg:col-span-2 rounded-xl border border-gray-200 p-4">
+                    <div x-show="!(authType === 'generated_key' && usePrivilegedBootstrap)" class="lg:col-span-2 rounded-xl border border-gray-200 p-4">
                         <label for="{{ form.credential_input.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">
                             <span x-show="authType !== 'key_file'">Credential Password</span>
                             <span x-show="authType === 'key_file'">SSH Private Key</span>
@@ -153,6 +138,87 @@
                         {% for error in form.credential_input.errors %}
                         <p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>
                         {% endfor %}
+                    </div>
+
+                    <div x-show="authType === 'generated_key'" class="lg:col-span-2 rounded-xl border border-gray-200 p-4">
+                        <label class="inline-flex cursor-pointer items-center gap-3">
+                            <input
+                                type="checkbox"
+                                name="{{ form.use_privileged_bootstrap.html_name }}"
+                                id="{{ form.use_privileged_bootstrap.id_for_label }}"
+                                x-model="usePrivilegedBootstrap"
+                                class="peer sr-only"
+                            >
+                            <span class="relative h-6 w-11 rounded-full bg-gray-200 transition-colors peer-checked:bg-brand-500 before:absolute before:left-0.5 before:top-0.5 before:h-5 before:w-5 before:rounded-full before:bg-white before:transition-transform peer-checked:before:translate-x-5"></span>
+                            <span class="text-theme-sm text-gray-700">Use temporary privileged SSH account for monitor-user bootstrap</span>
+                        </label>
+                        <p class="mt-2 text-theme-xs text-gray-500">
+                            Privileged credentials are used only in-memory during setup and are not stored.
+                        </p>
+                        {% for error in form.use_privileged_bootstrap.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                    </div>
+
+                    <div x-show="authType === 'generated_key' && usePrivilegedBootstrap" class="lg:col-span-2 grid grid-cols-1 gap-5 rounded-xl border border-gray-200 p-4 lg:grid-cols-2">
+                        <div>
+                            <label for="{{ form.privileged_username.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">
+                                Privileged SSH Username <span class="text-error-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                name="{{ form.privileged_username.html_name }}"
+                                id="{{ form.privileged_username.id_for_label }}"
+                                value="{{ form.privileged_username.value|default:'' }}"
+                                x-bind:disabled="!(authType === 'generated_key' && usePrivilegedBootstrap)"
+                                class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.privileged_username.errors %}border-error-500{% endif %}"
+                                placeholder="root"
+                            >
+                            {% for error in form.privileged_username.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                        </div>
+                        <div>
+                            <label for="{{ form.privileged_auth_type.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">
+                                Privileged Credential Type <span class="text-error-500">*</span>
+                            </label>
+                            <select
+                                name="{{ form.privileged_auth_type.html_name }}"
+                                id="{{ form.privileged_auth_type.id_for_label }}"
+                                x-model="privilegedAuthType"
+                                x-bind:disabled="!(authType === 'generated_key' && usePrivilegedBootstrap)"
+                                class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.privileged_auth_type.errors %}border-error-500{% endif %}"
+                            >
+                                {% for value, label in form.privileged_auth_type.field.choices %}
+                                <option value="{{ value }}" {% if form.privileged_auth_type.value == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            {% for error in form.privileged_auth_type.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                        </div>
+                        <div class="lg:col-span-2">
+                            <label for="{{ form.privileged_credential_input.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">
+                                <span x-show="privilegedAuthType === 'password'">Privileged SSH Password</span>
+                                <span x-show="privilegedAuthType === 'key_file'">Privileged SSH Private Key</span>
+                                <span class="text-error-500">*</span>
+                            </label>
+                            <input
+                                type="password"
+                                name="{{ form.privileged_credential_input.html_name }}"
+                                id="{{ form.privileged_credential_input.id_for_label }}_password"
+                                value="{{ form.privileged_credential_input.value|default:'' }}"
+                                autocomplete="new-password"
+                                x-show="privilegedAuthType === 'password'"
+                                x-bind:disabled="!(authType === 'generated_key' && usePrivilegedBootstrap) || privilegedAuthType !== 'password'"
+                                class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.privileged_credential_input.errors %}border-error-500{% endif %}"
+                                placeholder="Temporary password (not stored)"
+                            >
+                            <textarea
+                                name="{{ form.privileged_credential_input.html_name }}"
+                                id="{{ form.privileged_credential_input.id_for_label }}"
+                                rows="6"
+                                x-show="privilegedAuthType === 'key_file'"
+                                x-bind:disabled="!(authType === 'generated_key' && usePrivilegedBootstrap) || privilegedAuthType !== 'key_file'"
+                                class="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.privileged_credential_input.errors %}border-error-500{% endif %}"
+                                placeholder="Paste privileged private key text here"
+                            >{{ form.privileged_credential_input.value|default:'' }}</textarea>
+                            {% for error in form.privileged_credential_input.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                        </div>
                     </div>
                 </div>
                 <div class="flex items-center gap-3 pt-2">
