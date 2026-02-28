@@ -76,5 +76,13 @@ def encryption_service(encryption_key, settings):
     return EncryptionService()
 
 
+@pytest.fixture
+def disable_initial_metrics_collection(monkeypatch):
+    """Skip immediate metric collection for CRUD tests that don't assert metrics."""
+    from apps.servers import views as server_views
+
+    monkeypatch.setattr(server_views.collect_server_metrics, "delay", lambda *_args, **_kwargs: None)
+
+
 # Add more fixtures as needed for servers, alerts, etc.
 # These will be added in later phases when the models are created.

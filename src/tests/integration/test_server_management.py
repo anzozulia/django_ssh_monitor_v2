@@ -6,7 +6,7 @@ from apps.servers.models import Server
 
 
 @pytest.mark.django_db
-def test_server_edit_toggle_delete_flow(authenticated_client):
+def test_server_edit_toggle_delete_flow(authenticated_client, disable_initial_metrics_collection):
     server = Server.objects.create(
         name="srv-mgmt",
         host="10.0.0.81",

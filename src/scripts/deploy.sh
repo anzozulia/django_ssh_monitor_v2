@@ -13,6 +13,25 @@ HEALTHCHECK_ATTEMPTS="${HEALTHCHECK_ATTEMPTS:-30}"
 HEALTHCHECK_SLEEP_SECONDS="${HEALTHCHECK_SLEEP_SECONDS:-2}"
 EXPLICIT_COMPOSE_FILE="${COMPOSE_FILE:-}"
 
+build_frontend_assets() {
+  local project_root="$1"
+  local output_file="${project_root}/src/static/css/dist/styles.css"
+
+  echo "Building frontend assets using ephemeral Node container..."
+  docker run --rm \
+    -u "$(id -u):$(id -g)" \
+    -v "${project_root}:/app" \
+    -w /app/src/theme/static_src \
+    node:20-alpine \
+    sh -c "npm install && npm run build"
+
+  if [[ ! -f "${output_file}" ]]; then
+    echo "Frontend build output missing: ${output_file}" >&2
+    exit 1
+  fi
+  echo "Frontend build complete: ${output_file}"
+}
+
 cd "${DEPLOY_ROOT}"
 
 # Load project env when available (keeps one-file config model).
@@ -38,6 +57,8 @@ echo "Fetching latest refs..."
 git fetch --all --prune
 echo "Checking out ${DEPLOY_REF}..."
 git checkout --force "${DEPLOY_REF}"
+
+build_frontend_assets "${DEPLOY_ROOT}"
 
 echo "Building and starting production stack..."
 docker compose up -d --build

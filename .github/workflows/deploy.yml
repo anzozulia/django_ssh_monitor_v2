@@ -14,19 +14,25 @@ on:
         description: "Git ref to deploy (defaults to triggering SHA)"
         required: false
         default: ""
-  push:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
     branches:
       - staging
       - release
 
 concurrency:
-  group: deploy-${{ github.ref_name || github.event.inputs.target_env }}
+  group: deploy-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.event.inputs.target_env }}
   cancel-in-progress: false
 
 jobs:
   deploy-staging:
     if: |
-      (github.event_name == 'push' && github.ref_name == 'staging') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'staging') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.target_env == 'staging')
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -55,6 +61,9 @@ jobs:
             fi
 
             TARGET_REF="${{ github.sha }}"
+            if [ "${{ github.event_name }}" = "workflow_run" ]; then
+              TARGET_REF="${{ github.event.workflow_run.head_sha }}"
+            fi
             if [ -n "${{ github.event.inputs.target_ref }}" ]; then
               TARGET_REF="${{ github.event.inputs.target_ref }}"
             fi
@@ -68,7 +77,9 @@ jobs:
 
   deploy-release:
     if: |
-      (github.event_name == 'push' && github.ref_name == 'release') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'release') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.target_env == 'release')
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -97,6 +108,9 @@ jobs:
             fi
 
             TARGET_REF="${{ github.sha }}"
+            if [ "${{ github.event_name }}" = "workflow_run" ]; then
+              TARGET_REF="${{ github.event.workflow_run.head_sha }}"
+            fi
             if [ -n "${{ github.event.inputs.target_ref }}" ]; then
               TARGET_REF="${{ github.event.inputs.target_ref }}"
             fi

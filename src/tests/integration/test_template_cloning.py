@@ -6,7 +6,7 @@ from apps.servers.models import Server
 
 
 @pytest.mark.django_db
-def test_default_template_is_cloned_on_server_create(authenticated_client):
+def test_default_template_is_cloned_on_server_create(authenticated_client, disable_initial_metrics_collection):
     AlertRule.objects.create(
         server=None,
         is_default_template=True,
