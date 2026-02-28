@@ -19,9 +19,6 @@ on:
       - CI
     types:
       - completed
-    branches:
-      - staging
-      - release
 
 concurrency:
   group: deploy-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.event.inputs.target_env }}
@@ -32,6 +29,7 @@ jobs:
     if: |
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.head_branch == 'staging') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.target_env == 'staging')
     runs-on: ubuntu-latest
@@ -79,6 +77,7 @@ jobs:
     if: |
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.head_branch == 'release') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.target_env == 'release')
     runs-on: ubuntu-latest
