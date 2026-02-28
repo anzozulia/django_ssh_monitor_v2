@@ -1,0 +1,122 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: "Deployment target environment"
+        required: true
+        type: choice
+        options:
+          - staging
+          - release
+      target_ref:
+        description: "Git ref to deploy (defaults to triggering SHA)"
+        required: false
+        default: ""
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+concurrency:
+  group: deploy-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.event.inputs.target_env }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    if: |
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'staging') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target_env == 'staging')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: staging
+
+    steps:
+      - name: Deploy staging over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_VPS_HOST }}
+          username: ${{ secrets.STAGING_VPS_USER }}
+          key: ${{ secrets.STAGING_VPS_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.STAGING_VPS_PORT }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            DEPLOY_ROOT="${{ secrets.STAGING_VPS_DEPLOY_PATH }}"
+            if [ -z "${DEPLOY_ROOT}" ]; then
+              echo "STAGING_VPS_DEPLOY_PATH secret is required."
+              exit 1
+            fi
+
+            cd "${DEPLOY_ROOT}"
+            if [ ! -f "./scripts/deploy.sh" ] && [ -f "./src/scripts/deploy.sh" ]; then
+              cd src
+            fi
+
+            TARGET_REF="${{ github.sha }}"
+            if [ "${{ github.event_name }}" = "workflow_run" ]; then
+              TARGET_REF="${{ github.event.workflow_run.head_sha }}"
+            fi
+            if [ -n "${{ github.event.inputs.target_ref }}" ]; then
+              TARGET_REF="${{ github.event.inputs.target_ref }}"
+            fi
+
+            export DEPLOY_ROOT="$(pwd)"
+            export DEPLOY_REF="${TARGET_REF}"
+            export COMPOSE_FILE="docker-compose.prod.yml"
+            export HEALTHCHECK_URL="${{ secrets.STAGING_HEALTHCHECK_URL }}"
+
+            ./scripts/deploy.sh
+
+  deploy-release:
+    if: |
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'release') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target_env == 'release')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: release
+
+    steps:
+      - name: Deploy release over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.RELEASE_VPS_HOST }}
+          username: ${{ secrets.RELEASE_VPS_USER }}
+          key: ${{ secrets.RELEASE_VPS_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.RELEASE_VPS_PORT }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            DEPLOY_ROOT="${{ secrets.RELEASE_VPS_DEPLOY_PATH }}"
+            if [ -z "${DEPLOY_ROOT}" ]; then
+              echo "RELEASE_VPS_DEPLOY_PATH secret is required."
+              exit 1
+            fi
+
+            cd "${DEPLOY_ROOT}"
+            if [ ! -f "./scripts/deploy.sh" ] && [ -f "./src/scripts/deploy.sh" ]; then
+              cd src
+            fi
+
+            TARGET_REF="${{ github.sha }}"
+            if [ "${{ github.event_name }}" = "workflow_run" ]; then
+              TARGET_REF="${{ github.event.workflow_run.head_sha }}"
+            fi
+            if [ -n "${{ github.event.inputs.target_ref }}" ]; then
+              TARGET_REF="${{ github.event.inputs.target_ref }}"
+            fi
+
+            export DEPLOY_ROOT="$(pwd)"
+            export DEPLOY_REF="${TARGET_REF}"
+            export COMPOSE_FILE="docker-compose.prod.yml"
+            export HEALTHCHECK_URL="${{ secrets.RELEASE_HEALTHCHECK_URL }}"
+
+            ./scripts/deploy.sh
