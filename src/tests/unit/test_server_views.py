@@ -6,7 +6,9 @@ from apps.servers.models import Server
 
 
 @pytest.mark.django_db
-def test_server_update_view_keeps_existing_credentials_when_input_empty(authenticated_client):
+def test_server_update_view_keeps_existing_credentials_when_input_empty(
+    authenticated_client, disable_initial_metrics_collection
+):
     server = Server.objects.create(
         name="srv-update",
         host="10.0.0.71",

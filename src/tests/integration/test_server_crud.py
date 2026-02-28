@@ -55,7 +55,9 @@ def test_metrics_endpoint_empty(authenticated_client):
 
 
 @pytest.mark.django_db
-def test_update_server_allows_interval_change_without_new_credential(authenticated_client):
+def test_update_server_allows_interval_change_without_new_credential(
+    authenticated_client, disable_initial_metrics_collection
+):
     server = Server.objects.create(
         name="Editable",
         host="10.0.0.12",
