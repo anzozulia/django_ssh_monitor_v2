@@ -61,6 +61,7 @@ jobs:
 
             export DEPLOY_ROOT="$(pwd)"
             export DEPLOY_REF="${TARGET_REF}"
+            export COMPOSE_FILE="docker-compose.prod.yml"
             export HEALTHCHECK_URL="${{ secrets.STAGING_HEALTHCHECK_URL }}"
 
             ./scripts/deploy.sh
@@ -102,6 +103,7 @@ jobs:
 
             export DEPLOY_ROOT="$(pwd)"
             export DEPLOY_REF="${TARGET_REF}"
+            export COMPOSE_FILE="docker-compose.prod.yml"
             export HEALTHCHECK_URL="${{ secrets.RELEASE_HEALTHCHECK_URL }}"
 
             ./scripts/deploy.sh

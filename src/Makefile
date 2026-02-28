@@ -1,28 +1,37 @@
 SHELL := /bin/bash
 
-COMPOSE_LOCAL := docker-compose -f docker-compose.local.yml
-COMPOSE_PROD := docker-compose -f docker-compose.prod.yml
+ifneq ("$(wildcard .env)","")
+include .env
+export
+endif
+
+COMPOSE := docker compose
+COMPOSE_FILE ?= docker-compose.local.yml
+export COMPOSE_FILE
 
 APP := app
 
 .PHONY: help
-.PHONY: build up down restart ps logs
+.PHONY: build up down restart recreate ps logs logs-app logs-worker
 .PHONY: migrate makemigrations createsuperuser createadmin shell
 .PHONY: test test-cov lint format check
 .PHONY: tailwind-install tailwind-build tailwind-watch
-.PHONY: prod-up prod-down prod-build prod-logs
 .PHONY: deploy rollback healthz
 .PHONY: bootstrap clean reset
 
 help:
 	@echo "SSH Monitor DevOps Commands"
 	@echo ""
-	@echo "Local environment:"
-	@echo "  make build          Build local images"
-	@echo "  make up             Start local stack"
-	@echo "  make down           Stop local stack"
-	@echo "  make restart        Restart local stack"
-	@echo "  make ps             Show local container status"
+	@echo "Active compose file: $(COMPOSE_FILE)"
+	@echo "Tip: set COMPOSE_FILE in .env (or inline) to switch mode."
+	@echo ""
+	@echo "Stack:"
+	@echo "  make build          Build images"
+	@echo "  make up             Start stack"
+	@echo "  make down           Stop stack"
+	@echo "  make restart        Restart stack"
+	@echo "  make recreate       Force recreate stack"
+	@echo "  make ps             Show container status"
 	@echo "  make logs           Follow logs (all services)"
 	@echo "  make logs-app       Follow app logs"
 	@echo "  make logs-worker    Follow celery worker logs"
@@ -41,101 +50,85 @@ help:
 	@echo "  make check          Run lint + tests"
 	@echo ""
 	@echo "Tailwind:"
-	@echo "  make tailwind-install Install frontend deps for Tailwind"
+	@echo "  make tailwind-install Install frontend deps"
 	@echo "  make tailwind-build   Build minified Tailwind CSS"
 	@echo "  make tailwind-watch   Start Tailwind watch mode"
 	@echo ""
-	@echo "Production compose:"
-	@echo "  make prod-build     Build production images"
-	@echo "  make prod-up        Start production stack"
-	@echo "  make prod-down      Stop production stack"
-	@echo "  make prod-logs      Follow production logs"
-	@echo "  make deploy REF=<git-ref> Deploy checked-out ref on server"
-	@echo "  make rollback REF=<git-ref> Roll back to ref on server"
-	@echo "  make healthz        Probe local health endpoint"
+	@echo "Deployment:"
+	@echo "  make deploy REF=<git-ref>   Deploy checked-out ref"
+	@echo "  make rollback REF=<git-ref> Roll back to ref"
+	@echo "  make healthz                Probe health endpoint"
 	@echo ""
 	@echo "Maintenance:"
-	@echo "  make bootstrap      One-shot local setup (up, migrate, admin, styles)"
+	@echo "  make bootstrap      One-shot setup (up, migrate, admin, styles)"
 	@echo "  make clean          Remove dangling docker artifacts"
-	@echo "  make reset          Destroy local stack and volumes"
+	@echo "  make reset          Destroy stack and volumes"
 
 build:
-	$(COMPOSE_LOCAL) build
+	$(COMPOSE) build
 
 up:
-	$(COMPOSE_LOCAL) up -d --build
+	$(COMPOSE) up -d --build
 
 down:
-	$(COMPOSE_LOCAL) down
+	$(COMPOSE) down
 
 restart:
-	$(COMPOSE_LOCAL) down
-	$(COMPOSE_LOCAL) up -d --build
+	$(COMPOSE) down
+	$(COMPOSE) up -d --build
 
 recreate:
-	$(COMPOSE_LOCAL) up --build -d --force-recreate
+	$(COMPOSE) up --build -d --force-recreate
 
 ps:
-	$(COMPOSE_LOCAL) ps
+	$(COMPOSE) ps
 
 logs:
-	$(COMPOSE_LOCAL) logs -f
+	$(COMPOSE) logs -f
 
 logs-app:
-	$(COMPOSE_LOCAL) logs -f $(APP)
+	$(COMPOSE) logs -f $(APP)
 
 logs-worker:
-	$(COMPOSE_LOCAL) logs -f celery-worker
+	$(COMPOSE) logs -f celery-worker
 
 migrate:
-	$(COMPOSE_LOCAL) run --rm $(APP) python manage.py migrate
+	$(COMPOSE) run --rm $(APP) python manage.py migrate
 
 makemigrations:
-	$(COMPOSE_LOCAL) run --rm $(APP) python manage.py makemigrations
+	$(COMPOSE) run --rm $(APP) python manage.py makemigrations
 
 createsuperuser:
-	$(COMPOSE_LOCAL) run --rm $(APP) python manage.py createsuperuser
+	$(COMPOSE) run --rm $(APP) python manage.py createsuperuser
 
 createadmin:
-	$(COMPOSE_LOCAL) run --rm $(APP) python manage.py createadmin --username admin --password adminpass123 --no-input
+	$(COMPOSE) run --rm $(APP) python manage.py createadmin --username admin --password adminpass123 --no-input
 
 shell:
-	$(COMPOSE_LOCAL) run --rm $(APP) python manage.py shell
+	$(COMPOSE) run --rm $(APP) python manage.py shell
 
 test:
-	$(COMPOSE_LOCAL) run --rm $(APP) pytest -q
+	$(COMPOSE) run --rm $(APP) pytest -q
 
 test-cov:
-	$(COMPOSE_LOCAL) run --rm $(APP) pytest --cov=apps --cov-report=term-missing
+	$(COMPOSE) run --rm $(APP) pytest --cov=apps --cov-report=term-missing
 
 lint:
-	$(COMPOSE_LOCAL) run --rm $(APP) ruff check .
+	$(COMPOSE) run --rm $(APP) ruff check .
 
 format:
-	$(COMPOSE_LOCAL) run --rm $(APP) black .
+	$(COMPOSE) run --rm $(APP) black .
 
 check: lint test
 
 tailwind-install:
-	$(COMPOSE_LOCAL) run --rm $(APP) bash -lc "cd theme/static_src && npm install"
+	$(COMPOSE) run --rm $(APP) bash -lc "cd theme/static_src && npm install"
 
 tailwind-build:
-	$(COMPOSE_LOCAL) run --rm $(APP) bash -lc "cd theme/static_src && npm install && npm run build"
+	$(COMPOSE) run --rm $(APP) bash -lc "cd theme/static_src && npm install && npm run build"
 
 tailwind-watch:
-	$(COMPOSE_LOCAL) run --rm $(APP) bash -lc "cd theme/static_src && npm install && npm run dev"
-
-prod-build:
-	$(COMPOSE_PROD) build
-
-prod-up:
-	$(COMPOSE_PROD) up -d --build
-
-prod-down:
-	$(COMPOSE_PROD) down
-
-prod-logs:
-	$(COMPOSE_PROD) logs -f
+	$(COMPOSE) run --rm $(APP) bash -lc "cd theme/static_src && npm install && npm run dev"
 
 deploy:
 	@test -n "$(REF)" || (echo "Usage: make deploy REF=<git-ref>" && exit 1)
@@ -152,11 +145,11 @@ clean:
 	docker system prune -f
 
 bootstrap:
-	$(COMPOSE_LOCAL) up -d --build
-	$(COMPOSE_LOCAL) run --rm $(APP) python manage.py migrate
-	$(COMPOSE_LOCAL) run --rm $(APP) python manage.py createadmin --username admin --password adminpass123 --no-input
-	$(COMPOSE_LOCAL) run --rm $(APP) bash -lc "cd theme/static_src && npm install && npm run build"
-	$(COMPOSE_LOCAL) ps
+	$(COMPOSE) up -d --build
+	$(COMPOSE) run --rm $(APP) python manage.py migrate
+	$(COMPOSE) run --rm $(APP) python manage.py createadmin --username admin --password adminpass123 --no-input
+	$(COMPOSE) run --rm $(APP) bash -lc "cd theme/static_src && npm install && npm run build"
+	$(COMPOSE) ps
 
 reset:
-	$(COMPOSE_LOCAL) down -v --remove-orphans
+	$(COMPOSE) down -v --remove-orphans

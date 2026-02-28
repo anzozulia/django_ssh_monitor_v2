@@ -11,8 +11,24 @@ COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://127.0.0.1:8000/healthz}"
 HEALTHCHECK_ATTEMPTS="${HEALTHCHECK_ATTEMPTS:-30}"
 HEALTHCHECK_SLEEP_SECONDS="${HEALTHCHECK_SLEEP_SECONDS:-2}"
+EXPLICIT_COMPOSE_FILE="${COMPOSE_FILE:-}"
 
 cd "${DEPLOY_ROOT}"
+
+# Load project env when available (keeps one-file config model).
+if [[ -f ".env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source ".env"
+  set +a
+fi
+
+# Respect explicitly provided COMPOSE_FILE over .env value.
+if [[ -n "${EXPLICIT_COMPOSE_FILE}" ]]; then
+  COMPOSE_FILE="${EXPLICIT_COMPOSE_FILE}"
+fi
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
+export COMPOSE_FILE
 
 PREVIOUS_COMMIT="$(git rev-parse HEAD)"
 echo "Previous commit: ${PREVIOUS_COMMIT}"
@@ -24,10 +40,10 @@ echo "Checking out ${DEPLOY_REF}..."
 git checkout --force "${DEPLOY_REF}"
 
 echo "Building and starting production stack..."
-docker compose -f "${COMPOSE_FILE}" up -d --build
+docker compose up -d --build
 
 echo "Applying migrations..."
-docker compose -f "${COMPOSE_FILE}" exec -T app python manage.py migrate
+docker compose exec -T app python manage.py migrate
 
 echo "Running health check at ${HEALTHCHECK_URL}..."
 for ((i=1; i<=HEALTHCHECK_ATTEMPTS; i++)); do

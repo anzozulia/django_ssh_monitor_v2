@@ -9,7 +9,7 @@ services:
       - .:/app
       - ./logs:/app/logs
     env_file:
-      - .env.docker_local
+      - .env
     depends_on:
       postgres:
         condition: service_healthy
@@ -25,7 +25,7 @@ services:
       - .:/app
       - ./logs:/app/logs
     env_file:
-      - .env.docker_local
+      - .env
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,7 +41,7 @@ services:
       - .:/app
       - ./logs:/app/logs
     env_file:
-      - .env.docker_local
+      - .env
     depends_on:
       postgres:
         condition: service_healthy

@@ -5,7 +5,7 @@
 
 ## Prerequisites
 
-- Docker & Docker Compose
+- Docker (Compose v2 via `docker compose`)
 - Git
 
 ## Quick Start (Docker)
@@ -15,38 +15,38 @@
 ```bash
 # Clone repository
 git clone <repository-url>
-cd ssh_monitor
+cd src
 
 # Copy environment template
-cp .env.example .env.docker_local
+cp .env.example .env
 
 # Generate encryption key for credentials
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-# Add output to .env.docker_local as CREDENTIAL_ENCRYPTION_KEY=<key>
+# Add output to .env as CREDENTIAL_ENCRYPTION_KEY=<key>
 
-# Edit .env.docker_local with your settings
-nano .env.docker_local
+# Edit .env with your settings
+nano .env
 ```
 
 ### 2. Start Services
 
 ```bash
 # Build and start all containers
-docker-compose -f docker-compose.local.yml up -d
+docker compose up -d
 
 # Run database migrations
-docker-compose -f docker-compose.local.yml exec app python manage.py migrate
+docker compose exec app python manage.py migrate
 
 # Create admin user
-docker-compose -f docker-compose.local.yml exec app python manage.py createadmin --username admin --password <your-password>
+docker compose exec app python manage.py createadmin --username admin --password <your-password>
 
 # Collect static files (if needed)
-docker-compose -f docker-compose.local.yml exec app python manage.py collectstatic --noinput
+docker compose exec app python manage.py collectstatic --noinput
 ```
 
 ### 3. Access Application
 
-- **Web UI**: http://localhost:8000
+- **Web UI**: http://localhost:8001
 - **Login**: Use credentials from step 2
 
 ## Environment Variables
@@ -67,6 +67,7 @@ docker-compose -f docker-compose.local.yml exec app python manage.py collectstat
 | `DEBUG` | Debug mode | `False` |
 | `ALLOWED_HOSTS` | Comma-separated hosts | `localhost,127.0.0.1` |
 | `LOG_LEVEL` | Logging level | `INFO` |
+| `COMPOSE_FILE` | Compose mode selector | `docker-compose.local.yml` |
 
 ## Docker Services
 
@@ -114,22 +115,22 @@ docker-compose -f docker-compose.local.yml exec app python manage.py collectstat
 
 ```bash
 # View logs
-docker-compose -f docker-compose.local.yml logs -f app
+docker compose logs -f app
 
 # Run tests
-docker-compose -f docker-compose.local.yml exec app pytest
+docker compose exec app pytest
 
 # Run tests with coverage
-docker-compose -f docker-compose.local.yml exec app pytest --cov=apps --cov-report=html
+docker compose exec app pytest --cov=apps --cov-report=html
 
 # Django shell
-docker-compose -f docker-compose.local.yml exec app python manage.py shell
+docker compose exec app python manage.py shell
 
 # Create new migration
-docker-compose -f docker-compose.local.yml exec app python manage.py makemigrations
+docker compose exec app python manage.py makemigrations
 
 # Tailwind development (watch mode)
-docker-compose -f docker-compose.local.yml exec app python manage.py tailwind start
+docker compose exec app python manage.py tailwind start
 ```
 
 ## Troubleshooting
@@ -139,31 +140,31 @@ docker-compose -f docker-compose.local.yml exec app python manage.py tailwind st
 1. Check SSH credentials are correct
 2. Verify server is accessible from Docker network
 3. Check firewall allows SSH from monitoring server
-4. View logs: `docker-compose logs -f celery-worker`
+4. View logs: `docker compose logs -f celery-worker`
 
 ### Alerts not sending
 
 1. Verify Telegram channel is configured and validated
-2. Check Celery worker is running: `docker-compose ps`
-3. View Celery logs: `docker-compose logs -f celery-worker`
+2. Check Celery worker is running: `docker compose ps`
+3. View Celery logs: `docker compose logs -f celery-worker`
 
 ### Metrics not updating
 
-1. Verify Celery Beat is running: `docker-compose ps`
+1. Verify Celery Beat is running: `docker compose ps`
 2. Check server's monitoring is enabled
-3. View Beat logs: `docker-compose logs -f celery-beat`
+3. View Beat logs: `docker compose logs -f celery-beat`
 
 ## Production Deployment
 
 ```bash
 # Use production compose file
-docker-compose -f docker-compose.prod.yml up -d
+COMPOSE_FILE=docker-compose.prod.yml docker compose up -d
 
 # Run migrations
-docker-compose -f docker-compose.prod.yml exec app python manage.py migrate
+COMPOSE_FILE=docker-compose.prod.yml docker compose exec app python manage.py migrate
 
 # Create admin
-docker-compose -f docker-compose.prod.yml exec app python manage.py createadmin --username admin --password <secure-password>
+COMPOSE_FILE=docker-compose.prod.yml docker compose exec app python manage.py createadmin --username admin --password <secure-password>
 ```
 
 ### Production Checklist
