@@ -10,6 +10,26 @@ class ServerForm(forms.ModelForm):
         widget=forms.Textarea(attrs={"rows": 3}),
         help_text="Password for password auth, or private key text for key-file auth.",
     )
+    use_privileged_bootstrap = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
+    privileged_auth_type = forms.ChoiceField(
+        required=False,
+        choices=[
+            (AuthType.PASSWORD, "Password"),
+            (AuthType.KEY_FILE, "SSH Private Key"),
+        ],
+        initial=AuthType.PASSWORD,
+    )
+    privileged_username = forms.CharField(
+        required=False,
+        max_length=255,
+    )
+    privileged_credential_input = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
 
     class Meta:
         model = Server
@@ -20,7 +40,6 @@ class ServerForm(forms.ModelForm):
             "ssh_username",
             "auth_type",
             "check_interval_minutes",
-            "monitoring_enabled",
         ]
         widgets = {
             "port": forms.NumberInput(attrs={"placeholder": "22"}),
@@ -33,13 +52,36 @@ class ServerForm(forms.ModelForm):
         credential_input = cleaned_data.get("credential_input", "").strip()
         is_edit = bool(self.instance and self.instance.pk)
         previous_auth_type = self.instance.auth_type if is_edit else None
+        use_privileged_bootstrap = bool(cleaned_data.get("use_privileged_bootstrap"))
+        privileged_auth_type = cleaned_data.get("privileged_auth_type")
+        privileged_username = (cleaned_data.get("privileged_username") or "").strip()
+        privileged_credential_input = (cleaned_data.get("privileged_credential_input") or "").strip()
 
-        if auth_type in (AuthType.PASSWORD, AuthType.KEY_FILE, AuthType.GENERATED_KEY) and not credential_input:
+        requires_standard_credential = auth_type in (
+            AuthType.PASSWORD,
+            AuthType.KEY_FILE,
+            AuthType.GENERATED_KEY,
+        ) and not use_privileged_bootstrap
+        if requires_standard_credential and not credential_input:
             if not is_edit or auth_type != previous_auth_type:
                 self.add_error(
                     "credential_input",
                     "Credential input is required for selected authentication type.",
                 )
+
+        if use_privileged_bootstrap and auth_type != AuthType.GENERATED_KEY:
+            self.add_error(
+                "use_privileged_bootstrap",
+                "Privileged bootstrap is available only for 'Generate and Install Key' authentication.",
+            )
+        if use_privileged_bootstrap and not privileged_username:
+            self.add_error("privileged_username", "Privileged SSH username is required.")
+        if use_privileged_bootstrap and privileged_auth_type not in (AuthType.PASSWORD, AuthType.KEY_FILE):
+            self.add_error("privileged_auth_type", "Select a valid privileged authentication method.")
+        if use_privileged_bootstrap and not privileged_credential_input:
+            label = "password" if privileged_auth_type == AuthType.PASSWORD else "private key"
+            self.add_error("privileged_credential_input", f"Privileged SSH {label} is required.")
+
         return cleaned_data
 
     def save(self, commit=True):
