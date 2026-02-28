@@ -27,16 +27,11 @@ concurrency:
 jobs:
   deploy-staging:
     if: |
-      (
-        github.event_name == 'workflow_run' &&
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.event == 'push' &&
-        github.event.workflow_run.head_branch == 'staging'
-      ) ||
-      (
-        github.event_name == 'workflow_dispatch' &&
-        github.event.inputs.target_env == 'staging'
-      )
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'staging') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target_env == 'staging')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: staging
@@ -80,16 +75,11 @@ jobs:
 
   deploy-release:
     if: |
-      (
-        github.event_name == 'workflow_run' &&
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.event == 'push' &&
-        github.event.workflow_run.head_branch == 'release'
-      ) ||
-      (
-        github.event_name == 'workflow_dispatch' &&
-        github.event.inputs.target_env == 'release'
-      )
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'release') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target_env == 'release')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: release
