@@ -15,13 +15,25 @@ EXPLICIT_COMPOSE_FILE="${COMPOSE_FILE:-}"
 
 build_frontend_assets() {
   local project_root="$1"
-  local output_file="${project_root}/src/static/css/dist/styles.css"
+  local container_workdir=""
+  local output_file=""
+
+  if [[ -f "${project_root}/theme/static_src/package.json" ]]; then
+    container_workdir="/workspace/theme/static_src"
+    output_file="${project_root}/static/css/dist/styles.css"
+  elif [[ -f "${project_root}/src/theme/static_src/package.json" ]]; then
+    container_workdir="/workspace/src/theme/static_src"
+    output_file="${project_root}/src/static/css/dist/styles.css"
+  else
+    echo "Cannot find Tailwind source directory under ${project_root}." >&2
+    exit 1
+  fi
 
   echo "Building frontend assets using ephemeral Node container..."
   docker run --rm \
     -u "$(id -u):$(id -g)" \
-    -v "${project_root}:/app" \
-    -w /app/src/theme/static_src \
+    -v "${project_root}:/workspace" \
+    -w "${container_workdir}" \
     node:20-alpine \
     sh -c "npm install && npm run build"
 
