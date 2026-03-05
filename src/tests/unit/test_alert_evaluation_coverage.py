@@ -175,6 +175,86 @@ def test_evaluate_server_alerts_skips_when_no_snapshot():
 
 
 @pytest.mark.django_db
+def test_warning_rule_is_suppressed_when_critical_for_same_metric_is_active():
+    server = Server.objects.create(
+        name="SrvSeverity",
+        host="10.30.0.12",
+        port=22,
+        ssh_username="root",
+        auth_type="password",
+        credentials_encrypted=encrypt_credential("pass"),
+    )
+    warning_rule = AlertRule.objects.create(
+        server=server,
+        name="RAM warning",
+        severity="warning",
+        metric_type="ram_percent",
+        condition="gt",
+        threshold_value=70,
+        reminder_interval_minutes=1,
+    )
+    critical_rule = AlertRule.objects.create(
+        server=server,
+        name="RAM critical",
+        severity="critical",
+        metric_type="ram_percent",
+        condition="gt",
+        threshold_value=90,
+        reminder_interval_minutes=1,
+    )
+    MetricSnapshot.objects.create(server=server, collection_status="success", ram_percent=95)
+
+    AlertEvaluationService().evaluate_server_alerts(server)
+    warning_rule.refresh_from_db()
+    critical_rule.refresh_from_db()
+    assert critical_rule.current_state == "triggered"
+    assert warning_rule.current_state == "normal"
+
+
+@pytest.mark.django_db
+def test_warning_resumes_after_critical_dismissal_for_same_metric():
+    server = Server.objects.create(
+        name="SrvSeverityResume",
+        host="10.30.0.13",
+        port=22,
+        ssh_username="root",
+        auth_type="password",
+        credentials_encrypted=encrypt_credential("pass"),
+    )
+    warning_rule = AlertRule.objects.create(
+        server=server,
+        name="RAM warning",
+        severity="warning",
+        metric_type="ram_percent",
+        condition="gt",
+        threshold_value=70,
+    )
+    critical_rule = AlertRule.objects.create(
+        server=server,
+        name="RAM critical",
+        severity="critical",
+        metric_type="ram_percent",
+        condition="gt",
+        threshold_value=90,
+    )
+    svc = AlertEvaluationService()
+
+    MetricSnapshot.objects.create(server=server, collection_status="success", ram_percent=95)
+    svc.evaluate_server_alerts(server)
+    warning_rule.refresh_from_db()
+    critical_rule.refresh_from_db()
+    assert critical_rule.current_state == "triggered"
+    assert warning_rule.current_state == "normal"
+
+    MetricSnapshot.objects.create(server=server, collection_status="success", ram_percent=80)
+    svc.evaluate_server_alerts(server)
+    warning_rule.refresh_from_db()
+    critical_rule.refresh_from_db()
+    assert critical_rule.current_state == "normal"
+    assert warning_rule.current_state == "triggered"
+
+
+@pytest.mark.django_db
 def test_resolve_metric_all_ram_swap_load_paths():
     server = Server.objects.create(
         name="SrvAll",

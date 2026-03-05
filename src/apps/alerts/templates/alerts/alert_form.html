@@ -219,9 +219,14 @@
                         <h4 class="mb-4 text-theme-sm font-semibold uppercase tracking-wider text-gray-500">Recovery And Notifications</h4>
                         <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
                             <div>
-                                <label for="{{ form.reminder_interval_minutes.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">Reminder Interval (minutes)</label>
+                                <label for="{{ form.reminder_interval_minutes.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">Reminder Interval</label>
                                 <input type="number" name="{{ form.reminder_interval_minutes.html_name }}" id="{{ form.reminder_interval_minutes.id_for_label }}" value="{{ form.reminder_interval_minutes.value|default:'' }}" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden {% if form.reminder_interval_minutes.errors %}border-error-500{% endif %}">
                                 {% for error in form.reminder_interval_minutes.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
+                            </div>
+                            <div>
+                                <label for="{{ form.reminder_interval_unit.id_for_label }}" class="mb-1.5 block text-theme-sm font-medium text-gray-700">Reminder Unit</label>
+                                {{ form.reminder_interval_unit }}
+                                {% for error in form.reminder_interval_unit.errors %}<p class="mt-1.5 text-theme-xs text-error-500">{{ error }}</p>{% endfor %}
                             </div>
                         </div>
 

@@ -126,3 +126,74 @@ def test_form_allows_no_dismissal_threshold_when_toggle_is_off():
     assert form.is_valid(), form.errors
     assert form.cleaned_data["dismissal_threshold_value"] is None
     assert form.cleaned_data["dismissal_threshold_value_2"] is None
+
+
+@pytest.mark.django_db
+def test_form_allows_blank_reminder_interval_and_defaults_to_zero():
+    form = AlertRuleForm(
+        data={
+            "name": "RAM high no reminders",
+            "severity": "warning",
+            "metric_type": "ram_percent",
+            "metric_param": "",
+            "condition": "gt",
+            "threshold_value": "85",
+            "threshold_value_2": "",
+            "threshold_unit": "GB",
+            "reminder_interval_minutes": "",
+            "notify_on_dismissal": "",
+            "dismissal_threshold_value": "",
+            "dismissal_threshold_value_2": "",
+            "enabled": "on",
+        }
+    )
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["reminder_interval_minutes"] == 0
+
+
+@pytest.mark.django_db
+def test_form_converts_reminder_hours_to_minutes():
+    form = AlertRuleForm(
+        data={
+            "name": "RAM high with hourly reminders",
+            "severity": "warning",
+            "metric_type": "ram_percent",
+            "metric_param": "",
+            "condition": "gt",
+            "threshold_value": "85",
+            "threshold_value_2": "",
+            "threshold_unit": "GB",
+            "reminder_interval_minutes": "2",
+            "reminder_interval_unit": "hours",
+            "notify_on_dismissal": "",
+            "dismissal_threshold_value": "",
+            "dismissal_threshold_value_2": "",
+            "enabled": "on",
+        }
+    )
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["reminder_interval_minutes"] == 120
+
+
+@pytest.mark.django_db
+def test_edit_form_prefills_hourly_reminder_unit_when_divisible_by_60():
+    server = Server.objects.create(
+        name="srv-reminder",
+        host="127.0.0.3",
+        port=22,
+        ssh_username="root",
+        auth_type="password",
+        credentials_encrypted=encrypt_credential("pw"),
+    )
+    rule = AlertRule.objects.create(
+        server=server,
+        name="Hourly reminder",
+        severity="warning",
+        metric_type="ram_percent",
+        condition="gt",
+        threshold_value=80,
+        reminder_interval_minutes=120,
+    )
+    form = AlertRuleForm(instance=rule)
+    assert form.initial["reminder_interval_unit"] == "hours"
+    assert form.initial["reminder_interval_minutes"] == 2

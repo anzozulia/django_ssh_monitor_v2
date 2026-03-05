@@ -41,6 +41,12 @@ class AlertRuleForm(forms.ModelForm):
     }
 
     threshold_unit = forms.ChoiceField(choices=UNIT_CHOICES, required=False, initial="GB")
+    REMINDER_UNIT_CHOICES = [("minutes", "Minutes"), ("hours", "Hours")]
+    reminder_interval_unit = forms.ChoiceField(
+        choices=REMINDER_UNIT_CHOICES,
+        required=False,
+        initial="minutes",
+    )
     use_dismissal_threshold = forms.BooleanField(required=False, initial=False)
 
     def __init__(self, *args, **kwargs):
@@ -101,6 +107,8 @@ class AlertRuleForm(forms.ModelForm):
             metric_choices[-1][1].append((MetricType.CUSTOM, "System (internal)"))
 
         self.fields["metric_type"].choices = [group for group in metric_choices if group[1]]
+        self.fields["reminder_interval_minutes"].required = False
+        self.fields["reminder_interval_minutes"].min_value = 0
 
         metric_type = self.initial.get("metric_type") or self.data.get("metric_type") or self.instance.metric_type
         if not self.is_bound:
@@ -112,6 +120,11 @@ class AlertRuleForm(forms.ModelForm):
                 )
             )
         if not self.is_bound and self.instance.pk:
+            if self.instance.reminder_interval_minutes and self.instance.reminder_interval_minutes % 60 == 0:
+                self.initial["reminder_interval_unit"] = "hours"
+                self.initial["reminder_interval_minutes"] = self.instance.reminder_interval_minutes // 60
+            else:
+                self.initial["reminder_interval_unit"] = "minutes"
             if metric_type in self.BYTE_METRICS:
                 unit = self._best_byte_unit_for_value(self.instance.threshold_value)
                 factor = self.UNIT_FACTORS[unit]
@@ -178,6 +191,15 @@ class AlertRuleForm(forms.ModelForm):
         d1 = cleaned.get("dismissal_threshold_value")
         d2 = cleaned.get("dismissal_threshold_value_2")
         use_dismissal_threshold = cleaned.get("use_dismissal_threshold")
+        reminder_interval = cleaned.get("reminder_interval_minutes")
+        reminder_unit = cleaned.get("reminder_interval_unit") or "minutes"
+        if reminder_interval in (None, ""):
+            cleaned["reminder_interval_minutes"] = 0
+            self.instance.reminder_interval_minutes = 0
+        else:
+            reminder_minutes = reminder_interval * 60 if reminder_unit == "hours" else reminder_interval
+            cleaned["reminder_interval_minutes"] = reminder_minutes
+            self.instance.reminder_interval_minutes = reminder_minutes
 
         if metric_type in self.BYTE_METRICS:
             factor = self.UNIT_FACTORS.get(unit, 1)

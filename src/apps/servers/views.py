@@ -118,11 +118,11 @@ def create_connectivity_alert_if_available(server: Server) -> None:
 
         AlertRule.objects.get_or_create(
             server=server,
-            name="SSH Connectivity",
+            metric_type="custom",
+            metric_param="ssh_connectivity",
             defaults={
+                "name": "SSH Connectivity",
                 "severity": "critical",
-                "metric_type": "custom",
-                "metric_param": "ssh_connectivity",
                 "condition": "eq",
                 "threshold_value": 1,
                 "enabled": True,
