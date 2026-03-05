@@ -7,6 +7,30 @@ from apps.servers.models import MetricSnapshot, Server
 
 class AlertEvaluationService:
     @staticmethod
+    def _metric_scope_key(rule: AlertRule) -> tuple[str, str]:
+        return (rule.metric_type, rule.metric_param or "")
+
+    @staticmethod
+    def _severity_priority(rule: AlertRule) -> int:
+        return 0 if rule.severity == "critical" else 1
+
+    @staticmethod
+    def _reset_rule_to_normal(rule: AlertRule) -> None:
+        rule.current_state = AlertState.NORMAL
+        rule.triggered_at = None
+        rule.last_reminder_at = None
+        rule.condition_cleared_at = None
+        rule.save(
+            update_fields=[
+                "current_state",
+                "triggered_at",
+                "last_reminder_at",
+                "condition_cleared_at",
+                "updated_at",
+            ]
+        )
+
+    @staticmethod
     def _emit_event(
         *,
         rule: AlertRule,
@@ -144,8 +168,25 @@ class AlertEvaluationService:
         if not snapshot:
             return
         now = timezone.now()
-        rules = server.alert_rules.filter(enabled=True)
+        rules = sorted(
+            server.alert_rules.filter(enabled=True),
+            key=lambda rule: (self._severity_priority(rule), rule.id),
+        )
+        active_critical_scopes = {
+            self._metric_scope_key(rule)
+            for rule in rules
+            if rule.severity == "critical" and rule.current_state == AlertState.TRIGGERED
+        }
+
         for rule in rules:
+            scope_key = self._metric_scope_key(rule)
+            if rule.severity == "warning" and scope_key in active_critical_scopes:
+                # While critical is active for the same metric scope, keep lower-severity
+                # rule quiet to prevent duplicate notifications.
+                if rule.current_state == AlertState.TRIGGERED:
+                    self._reset_rule_to_normal(rule)
+                continue
+
             metric_value = self._resolve_metric(rule, snapshot)
             if metric_value is None:
                 continue
@@ -171,6 +212,8 @@ class AlertEvaluationService:
                     event_type=EventType.TRIGGERED,
                     metric_value=metric_value,
                 )
+                if rule.severity == "critical":
+                    active_critical_scopes.add(scope_key)
                 continue
 
             if matches and rule.current_state == AlertState.TRIGGERED:
@@ -210,3 +253,5 @@ class AlertEvaluationService:
                         event_type=EventType.DISMISSED,
                         metric_value=metric_value,
                     )
+                if rule.severity == "critical":
+                    active_critical_scopes.discard(scope_key)

@@ -1,25 +1,117 @@
-from django.utils import timezone
-
 from apps.alerts.models import AlertEvent, AlertRule
 from apps.notifications.models import ChannelType, NotificationChannel
 from apps.notifications.services.telegram import TelegramChannel
 
 
 class NotificationDispatcher:
+    _BYTE_METRICS = {
+        "ram_used",
+        "ram_free",
+        "ram_available",
+        "ram_cached",
+        "swap_used",
+        "swap_free",
+        "disk_used",
+        "disk_free",
+    }
+    _PERCENT_METRICS = {
+        "ram_percent",
+        "ram_free_pct",
+        "ram_available_pct",
+        "swap_percent",
+        "swap_free_pct",
+        "disk_percent",
+        "disk_free_pct",
+    }
+    _LOAD_METRICS = {"cpu_load_1", "cpu_load_5", "cpu_load_15"}
+    _SEVERITY_EMOJIS = {
+        "triggered:critical": "🔴",
+        "triggered:warning": "🟡",
+        "reminded:critical": "🔴",
+        "reminded:warning": "🟡",
+        "dismissed:critical": "🟢",
+        "dismissed:warning": "🟢",
+    }
+
+    @classmethod
+    def _format_bytes(cls, value: float) -> str:
+        units = ["B", "KB", "MB", "GB", "TB", "PB"]
+        size = float(value)
+        idx = 0
+        while abs(size) >= 1024 and idx < len(units) - 1:
+            size /= 1024
+            idx += 1
+        return f"{size:.2f} {units[idx]}"
+
+    @classmethod
+    def _format_uptime(cls, value: float) -> str:
+        seconds = int(max(value, 0))
+        days, rem = divmod(seconds, 86400)
+        hours, rem = divmod(rem, 3600)
+        minutes, secs = divmod(rem, 60)
+        if days > 0:
+            return f"{days}d {hours}h {minutes}m"
+        if hours > 0:
+            return f"{hours}h {minutes}m {secs}s"
+        if minutes > 0:
+            return f"{minutes}m {secs}s"
+        return f"{secs}s"
+
+    @classmethod
+    def _format_value(cls, metric_type: str, value: float) -> str:
+        if metric_type in cls._BYTE_METRICS:
+            return cls._format_bytes(value)
+        if metric_type in cls._PERCENT_METRICS:
+            return f"{value:.2f}%"
+        if metric_type in cls._LOAD_METRICS:
+            return f"{value:.2f}"
+        if metric_type == "uptime":
+            return cls._format_uptime(value)
+        return f"{value:.2f}"
+
+    @classmethod
+    def _build_threshold_text(cls, rule: AlertRule) -> str:
+        value_1 = cls._format_value(rule.metric_type, rule.threshold_value)
+        if rule.condition in {"in_range", "out_of_range"} and rule.threshold_value_2 is not None:
+            value_2 = cls._format_value(rule.metric_type, rule.threshold_value_2)
+            if rule.condition == "in_range":
+                return f"in range {value_1} to {value_2}"
+            return f"outside {value_1} to {value_2}"
+
+        operators = {
+            "gt": f"> {value_1}",
+            "gte": f"≥ {value_1}",
+            "lt": f"< {value_1}",
+            "lte": f"≤ {value_1}",
+            "eq": f"= {value_1}",
+        }
+        return operators.get(rule.condition, value_1)
+
     @staticmethod
     def _build_message(event: AlertEvent) -> str:
         rule: AlertRule = event.alert_rule
-        timestamp = timezone.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-        return (
-            f"[{event.event_type.upper()}] {rule.severity.upper()}\n"
-            f"Server: {event.server.name}\n"
-            f"Rule: {rule.name}\n"
-            f"Metric: {rule.metric_type}\n"
-            f"Condition: {rule.condition}\n"
-            f"Value: {event.metric_value:.2f}\n"
-            f"Threshold: {event.threshold_value:.2f}\n"
-            f"Time: {timestamp}"
+        severity_emoji = NotificationDispatcher._SEVERITY_EMOJIS.get(
+            f"{event.event_type}:{rule.severity}",
+            "⚪",
         )
+        metric_label = rule.get_metric_type_display()
+        threshold_text = NotificationDispatcher._build_threshold_text(rule)
+        rule_suffix = ""
+        if event.event_type == "dismissed":
+            rule_suffix = " — Dismissed"
+        elif event.event_type == "reminded":
+            rule_suffix = " — Reminder"
+
+        lines = [
+            f"{severity_emoji} {event.server.name}",
+            f"{rule.name}{rule_suffix}",
+        ]
+
+        is_ssh_connectivity = rule.metric_type == "custom" and rule.metric_param == "ssh_connectivity"
+        if not is_ssh_connectivity:
+            lines.append(f"{metric_label} {threshold_text}")
+
+        return "\n".join(lines)
 
     def _get_backends(self) -> list[TelegramChannel]:
         backends: list[TelegramChannel] = []

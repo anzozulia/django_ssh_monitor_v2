@@ -15,6 +15,7 @@ from django.views import View
 
 from apps.alerts.forms import AlertRuleForm
 from apps.alerts.models import AlertEvent, AlertRule, EventType, MetricType
+from apps.alerts.services.template_service import ensure_default_connectivity_template, is_ssh_connectivity_rule
 from apps.servers.models import Server
 
 
@@ -99,6 +100,7 @@ class DefaultAlertListView(LoginRequiredMixin, View):
     template_name = "alerts/default_list.html"
 
     def get(self, request):
+        ensure_default_connectivity_template()
         return render(
             request,
             self.template_name,
@@ -155,6 +157,7 @@ class DefaultAlertUpdateView(LoginRequiredMixin, View):
 
     def post(self, request, pk: int):
         template = get_object_or_404(AlertRule, id=pk, is_default_template=True, server__isnull=True)
+        is_connectivity_template = is_ssh_connectivity_rule(template)
         form = AlertRuleForm(request.POST, instance=template)
         if not form.is_valid():
             return render(
@@ -168,6 +171,15 @@ class DefaultAlertUpdateView(LoginRequiredMixin, View):
                 },
             )
         template = form.save(commit=False)
+        if is_connectivity_template:
+            template.name = "SSH Connectivity"
+            template.severity = "critical"
+            template.metric_type = "custom"
+            template.metric_param = "ssh_connectivity"
+            template.condition = "eq"
+            template.threshold_value = 1
+            template.threshold_value_2 = None
+            template.enabled = True
         template.server = None
         template.is_default_template = True
         template.enabled = True
@@ -179,6 +191,9 @@ class DefaultAlertUpdateView(LoginRequiredMixin, View):
 class DefaultAlertDeleteView(LoginRequiredMixin, View):
     def post(self, request, pk: int):
         template = get_object_or_404(AlertRule, id=pk, is_default_template=True, server__isnull=True)
+        if is_ssh_connectivity_rule(template):
+            messages.error(request, "SSH connectivity default template cannot be deleted.")
+            return redirect("alerts:defaults")
         template.delete()
         messages.success(request, "Default alert template deleted.")
         return redirect("alerts:defaults")
@@ -224,6 +239,7 @@ class AlertRuleUpdateView(LoginRequiredMixin, View):
 
     def post(self, request, pk: int):
         rule = get_object_or_404(AlertRule, id=pk)
+        is_connectivity_rule = is_ssh_connectivity_rule(rule)
         form = AlertRuleForm(request.POST, instance=rule)
         if not form.is_valid():
             return render(
@@ -231,7 +247,17 @@ class AlertRuleUpdateView(LoginRequiredMixin, View):
                 self.template_name,
                 {"server": rule.server, "rule": rule, "form": form, "mode": "edit"},
             )
-        form.save()
+        updated_rule = form.save(commit=False)
+        if is_connectivity_rule:
+            updated_rule.name = "SSH Connectivity"
+            updated_rule.severity = "critical"
+            updated_rule.metric_type = "custom"
+            updated_rule.metric_param = "ssh_connectivity"
+            updated_rule.condition = "eq"
+            updated_rule.threshold_value = 1
+            updated_rule.threshold_value_2 = None
+            updated_rule.enabled = True
+        updated_rule.save()
         messages.success(request, "Alert rule updated.")
         return redirect("servers:detail", pk=rule.server_id)
 
@@ -240,6 +266,9 @@ class AlertRuleDeleteView(LoginRequiredMixin, View):
     def post(self, request, pk: int):
         rule = get_object_or_404(AlertRule, id=pk)
         server_id = rule.server_id
+        if is_ssh_connectivity_rule(rule):
+            messages.error(request, "SSH connectivity rule cannot be deleted.")
+            return redirect("servers:detail", pk=server_id)
         rule.delete()
         messages.success(request, "Alert rule deleted.")
         return redirect("servers:detail", pk=server_id)
